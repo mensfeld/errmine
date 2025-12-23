@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="misc/logo.png" alt="Errmine" width="300"/>
+</p>
+
 # Errmine
 
 [![Build Status](https://github.com/mensfeld/errmine/workflows/ci/badge.svg)](https://github.com/mensfeld/errmine/actions?query=workflow%3Aci)
