@@ -6,7 +6,7 @@ Gem::Specification.new do |spec|
   spec.name          = 'errmine'
   spec.version       = Errmine::VERSION
   spec.authors       = ['Maciej Mensfeld']
-  spec.email         = ['contact@mensfeld.pl']
+  spec.email         = ['maciej@mensfeld.pl']
   spec.summary       = 'Dead simple exception tracking for Redmine'
   spec.description   = 'Automatically create and update Redmine issues from Ruby/Rails exceptions. Zero dependencies.'
   spec.homepage      = 'https://github.com/mensfeld/errmine'
@@ -23,5 +23,4 @@ Gem::Specification.new do |spec|
     'changelog_uri' => "#{spec.homepage}/blob/main/CHANGELOG.md",
     'rubygems_mfa_required' => 'true'
   }
-
 end
