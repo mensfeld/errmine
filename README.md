@@ -11,6 +11,25 @@ Errmine automatically creates and updates Redmine issues from Ruby/Rails excepti
 [a1b2c3d4][47] NoMethodError: undefined method 'foo' for nil...
 ```
 
+## Why Errmine?
+
+If you already use Redmine for project management, Errmine lets you track production errors without adding another service to your stack.
+
+**vs. Sentry, Honeybadger, Airbrake, etc.**
+- No external service, no monthly fees, no data leaving your infrastructure
+- Errors live alongside your tasks and documentation in Redmine
+- No new UI to learn - just Redmine issues
+
+**vs. Exception Notification gem**
+- Automatic deduplication - same error updates existing issue instead of creating duplicates
+- Rate limiting prevents inbox/Redmine flooding during error storms
+- Occurrence counting shows error frequency at a glance
+
+**vs. Rolling your own**
+- Zero dependencies - uses only Ruby stdlib
+- Handles edge cases: rate limiting, timeouts, thread safety, fail-safe error handling
+- Works out of the box with Rails 7+ Error Reporting API
+
 ## Features
 
 - **Zero dependencies** - Uses only Ruby stdlib (net/http, json, digest, uri)
@@ -199,7 +218,7 @@ Example: `[a1b2c3d4][47] NoMethodError: undefined method 'foo' for nil...`
 **Exception:** @NoMethodError@
 **Message:** undefined method 'foo' for nil:NilClass
 **App:** my-app
-**First seen:** 2024-01-15 10:30:00
+**First seen:** 2025-01-15 10:30:00
 
 **URL:** /users/123
 **User:** user@example.com
@@ -215,21 +234,13 @@ app/controllers/application_controller.rb:12:in `authenticate'
 ### Journal Note (on subsequent occurrences)
 
 ```textile
-Occurred again (*47x*) at 2024-01-15 10:35:00
+Occurred again (*47x*) at 2025-01-15 10:35:00
 
 URL: /users/456
 
 <pre>
 app/controllers/users_controller.rb:45:in `show'
 </pre>
-```
-
-## Development
-
-```bash
-bundle install
-bundle exec rspec
-bundle exec rubocop
 ```
 
 ## License
