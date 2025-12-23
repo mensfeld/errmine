@@ -1,24 +1,17 @@
-# Changelog
+# Errmine changelog
 
-All notable changes to this project will be documented in this file.
+## 0.1.0 (2025-01-15)
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+Initial release of Errmine - dead simple exception tracking for Redmine.
 
-## [Unreleased]
-
-## [0.1.0] - 2024-01-15
-
-### Added
-
-- Initial release
-- Automatic exception tracking to Redmine
-- Issue deduplication via checksum matching
-- Occurrence counter in issue subject
-- Rate limiting to prevent flooding
-- Rails 7+ Error Reporting API integration
-- Rack middleware for all Rails versions
-- Manual notification API
-- Environment variable configuration
-- Thread-safe cache implementation
-- Comprehensive test suite
+- [Feature] Automatic exception tracking to Redmine via REST API.
+- [Feature] Issue deduplication using 8-character MD5 checksums based on exception class, message, and first application backtrace line.
+- [Feature] Occurrence counter in issue subject (`[checksum][count] ExceptionClass: message`).
+- [Feature] Rate limiting with configurable cooldown to prevent Redmine flooding.
+- [Feature] Rails 7+ Error Reporting API integration via Railtie.
+- [Feature] Rack middleware for exception handling in all Ruby web applications.
+- [Feature] Manual notification API with custom context support.
+- [Feature] Environment variable configuration (`ERRMINE_REDMINE_URL`, `ERRMINE_API_KEY`, `ERRMINE_PROJECT`, `ERRMINE_APP_NAME`).
+- [Feature] Thread-safe in-memory cache with automatic cleanup.
+- [Feature] Fail-safe error handling - never crashes your application.
+- [Feature] Zero runtime dependencies - uses only Ruby stdlib.

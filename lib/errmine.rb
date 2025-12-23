@@ -35,6 +35,7 @@ module Errmine
     # @return [Integer] Cooldown period in seconds between same-error notifications
     attr_accessor :cooldown
 
+    # Initializes configuration with defaults from environment variables
     def initialize
       @redmine_url = ENV.fetch('ERRMINE_REDMINE_URL', nil)
       @api_key     = ENV.fetch('ERRMINE_API_KEY', nil)

@@ -25,6 +25,7 @@ module Errmine
     # Maximum length of exception message in issue subject
     SUBJECT_MESSAGE_LENGTH = 60
 
+    # Initializes the notifier with empty cache
     def initialize
       @cache = {}
       @mutex = Mutex.new
@@ -63,16 +64,27 @@ module Errmine
 
     private
 
+    # Returns the Errmine configuration
+    #
+    # @return [Errmine::Configuration]
     def config
       Errmine.configuration
     end
 
+    # Generates an 8-character checksum for the exception
+    #
+    # @param exception [Exception]
+    # @return [String]
     def generate_checksum(exception)
       first_app_line = first_app_backtrace_line(exception)
       data = "#{exception.class}:#{exception.message}:#{first_app_line}"
       Digest::MD5.hexdigest(data)[0, 8]
     end
 
+    # Finds the first backtrace line from the application
+    #
+    # @param exception [Exception]
+    # @return [String]
     def first_app_backtrace_line(exception)
       return '' unless exception.backtrace
 
@@ -81,6 +93,10 @@ module Errmine
         ''
     end
 
+    # Checks if the checksum is rate limited
+    #
+    # @param checksum [String]
+    # @return [Boolean]
     def rate_limited?(checksum)
       @mutex.synchronize do
         last_seen = @cache[checksum]
@@ -90,6 +106,10 @@ module Errmine
       end
     end
 
+    # Records the occurrence of a checksum
+    #
+    # @param checksum [String]
+    # @return [void]
     def record_occurrence(checksum)
       @mutex.synchronize do
         cleanup_cache if @cache.size >= MAX_CACHE_SIZE
@@ -97,6 +117,9 @@ module Errmine
       end
     end
 
+    # Cleans up old entries from the cache
+    #
+    # @return [void]
     def cleanup_cache
       cutoff = Time.now - config.cooldown
       @cache.delete_if { |_, time| time < cutoff }
@@ -108,6 +131,10 @@ module Errmine
       to_remove.each_key { |key| @cache.delete(key) }
     end
 
+    # Finds an existing open issue with the given checksum
+    #
+    # @param checksum [String]
+    # @return [Hash, Symbol, nil] the issue hash, :error on failure, or nil if not found
     def find_existing_issue(checksum)
       uri = build_uri('/issues.json')
       uri.query = URI.encode_www_form(
@@ -128,6 +155,12 @@ module Errmine
       :error
     end
 
+    # Creates a new issue in Redmine
+    #
+    # @param exception [Exception]
+    # @param context [Hash]
+    # @param checksum [String]
+    # @return [Hash, nil]
     def create_issue(exception, context, checksum)
       uri = build_uri('/issues.json')
 
@@ -153,6 +186,12 @@ module Errmine
       nil
     end
 
+    # Updates an existing issue with new occurrence
+    #
+    # @param issue [Hash]
+    # @param exception [Exception]
+    # @param context [Hash]
+    # @return [Net::HTTPResponse, nil]
     def update_issue(issue, exception, context)
       issue_id = issue['id']
       current_subject = issue['subject']
@@ -175,6 +214,12 @@ module Errmine
       http_put(uri, payload)
     end
 
+    # Builds the issue subject line
+    #
+    # @param checksum [String]
+    # @param count [Integer]
+    # @param exception [Exception]
+    # @return [String]
     def build_subject(checksum, count, exception)
       message = exception.message.to_s
       truncated = message.length > SUBJECT_MESSAGE_LENGTH ? "#{message[0, SUBJECT_MESSAGE_LENGTH]}..." : message
@@ -183,6 +228,11 @@ module Errmine
       "[#{checksum}][#{count}] #{exception.class}: #{truncated}"
     end
 
+    # Builds the issue description in Textile format
+    #
+    # @param exception [Exception]
+    # @param context [Hash]
+    # @return [String]
     def build_description(exception, context)
       lines = []
       lines << "**Exception:** @#{exception.class}@"
@@ -211,6 +261,12 @@ module Errmine
       lines.join("\n")
     end
 
+    # Builds a journal note for issue updates
+    #
+    # @param count [Integer]
+    # @param context [Hash]
+    # @param exception [Exception]
+    # @return [String]
     def build_journal_note(count, context, exception)
       lines = []
       lines << "Occurred again (*#{count}x*) at #{Time.now.strftime('%Y-%m-%d %H:%M:%S')}"
@@ -227,27 +283,48 @@ module Errmine
       lines.join("\n")
     end
 
+    # Formats the exception backtrace
+    #
+    # @param exception [Exception]
+    # @param limit [Integer]
+    # @return [String]
     def format_backtrace(exception, limit: 20)
       return 'No backtrace available' unless exception.backtrace
 
       exception.backtrace.first(limit).join("\n")
     end
 
+    # Extracts the occurrence count from issue subject
+    #
+    # @param subject [String, nil]
+    # @return [Integer]
     def extract_count(subject)
       match = subject&.match(/\]\[(\d+)\]/)
       match ? match[1].to_i : 0
     end
 
+    # Extracts the checksum from issue subject
+    #
+    # @param subject [String, nil]
+    # @return [String]
     def extract_checksum(subject)
       match = subject&.match(/\[([a-f0-9]{8})\]/)
       match ? match[1] : ''
     end
 
+    # Builds a URI for the Redmine API
+    #
+    # @param path [String]
+    # @return [URI]
     def build_uri(path)
       base = config.redmine_url.chomp('/')
       URI.parse("#{base}#{path}")
     end
 
+    # Performs an HTTP GET request
+    #
+    # @param uri [URI]
+    # @return [Net::HTTPResponse, nil]
     def http_get(uri)
       http_request(uri) do |http|
         request = Net::HTTP::Get.new(uri)
@@ -256,6 +333,11 @@ module Errmine
       end
     end
 
+    # Performs an HTTP POST request
+    #
+    # @param uri [URI]
+    # @param payload [Hash]
+    # @return [Net::HTTPResponse, nil]
     def http_post(uri, payload)
       http_request(uri) do |http|
         request = Net::HTTP::Post.new(uri)
@@ -266,6 +348,11 @@ module Errmine
       end
     end
 
+    # Performs an HTTP PUT request
+    #
+    # @param uri [URI]
+    # @param payload [Hash]
+    # @return [Net::HTTPResponse, nil]
     def http_put(uri, payload)
       http_request(uri) do |http|
         request = Net::HTTP::Put.new(uri)
@@ -276,6 +363,10 @@ module Errmine
       end
     end
 
+    # Executes an HTTP request with error handling
+    #
+    # @param uri [URI]
+    # @return [Net::HTTPResponse, nil]
     def http_request(uri)
       http = Net::HTTP.new(uri.host, uri.port)
       http.use_ssl = uri.scheme == 'https'
