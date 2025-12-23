@@ -36,11 +36,11 @@ module Errmine
     attr_accessor :cooldown
 
     def initialize
-      @redmine_url = ENV.fetch('REDMINE_URL', nil)
-      @api_key     = ENV.fetch('REDMINE_API_KEY', nil)
-      @project_id  = ENV['REDMINE_PROJECT'] || 'bug-tracker'
+      @redmine_url = ENV.fetch('ERRMINE_REDMINE_URL', nil)
+      @api_key     = ENV.fetch('ERRMINE_API_KEY', nil)
+      @project_id  = ENV['ERRMINE_PROJECT'] || 'bug-tracker'
       @tracker_id  = 1
-      @app_name    = ENV['APP_NAME'] || 'unknown'
+      @app_name    = ENV['ERRMINE_APP_NAME'] || 'unknown'
       @enabled     = true
       @cooldown    = 300
     end

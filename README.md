@@ -59,10 +59,10 @@ bundle install
 
 Errmine reads these environment variables as defaults:
 
-- `REDMINE_URL` - Redmine server URL
-- `REDMINE_API_KEY` - API key for authentication
-- `REDMINE_PROJECT` - Project identifier (default: `'bug-tracker'`)
-- `APP_NAME` - Application name (default: `'unknown'`)
+- `ERRMINE_REDMINE_URL` - Redmine server URL
+- `ERRMINE_API_KEY` - API key for authentication
+- `ERRMINE_PROJECT` - Project identifier (default: `'bug-tracker'`)
+- `ERRMINE_APP_NAME` - Application name (default: `'unknown'`)
 
 ### Rails
 
@@ -96,11 +96,11 @@ end
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `redmine_url` | `ENV['REDMINE_URL']` | Redmine server URL (required) |
-| `api_key` | `ENV['REDMINE_API_KEY']` | API key for authentication (required) |
-| `project_id` | `'bug-tracker'` | Redmine project identifier |
+| `redmine_url` | `ENV['ERRMINE_REDMINE_URL']` | Redmine server URL (required) |
+| `api_key` | `ENV['ERRMINE_API_KEY']` | API key for authentication (required) |
+| `project_id` | `ENV['ERRMINE_PROJECT']` or `'bug-tracker'` | Redmine project identifier |
 | `tracker_id` | `1` | Tracker ID (usually 1 = Bug) |
-| `app_name` | `'unknown'` | Application name shown in issues |
+| `app_name` | `ENV['ERRMINE_APP_NAME']` or `'unknown'` | Application name shown in issues |
 | `enabled` | `true` | Enable/disable notifications |
 | `cooldown` | `300` | Seconds between same-error notifications |
 

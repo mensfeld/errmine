@@ -104,17 +104,17 @@ RSpec.describe Errmine do
     describe '#initialize' do
       context 'with environment variables' do
         before do
-          ENV['REDMINE_URL'] = 'https://env.example.com'
-          ENV['REDMINE_API_KEY'] = 'env-key'
-          ENV['REDMINE_PROJECT'] = 'env-project'
-          ENV['APP_NAME'] = 'env-app'
+          ENV['ERRMINE_REDMINE_URL'] = 'https://env.example.com'
+          ENV['ERRMINE_API_KEY'] = 'env-key'
+          ENV['ERRMINE_PROJECT'] = 'env-project'
+          ENV['ERRMINE_APP_NAME'] = 'env-app'
         end
 
         after do
-          ENV.delete('REDMINE_URL')
-          ENV.delete('REDMINE_API_KEY')
-          ENV.delete('REDMINE_PROJECT')
-          ENV.delete('APP_NAME')
+          ENV.delete('ERRMINE_REDMINE_URL')
+          ENV.delete('ERRMINE_API_KEY')
+          ENV.delete('ERRMINE_PROJECT')
+          ENV.delete('ERRMINE_APP_NAME')
         end
 
         it 'reads from environment variables' do
