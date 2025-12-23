@@ -1,0 +1,25 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended"
+  ],
+  "includePaths": [
+    "Gemfile",
+    "errmine.gemspec",
+    ".github/workflows/**"
+  ],
+  "packageRules": [
+    {
+      "minimumReleaseAge": "7 days",
+      "matchDepNames": [
+        "/*/"
+      ]
+    },
+    {
+      "matchManagers": [
+        "github-actions"
+      ],
+      "pinDigests": true
+    }
+  ]
+}
