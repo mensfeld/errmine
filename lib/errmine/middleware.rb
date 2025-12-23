@@ -26,6 +26,10 @@ module Errmine
 
     private
 
+    # Sends exception notification to Redmine
+    #
+    # @param exception [Exception] the caught exception
+    # @param env [Hash] the Rack environment
     def notify_exception(exception, env)
       context = build_context(env)
       Errmine.notify(exception, context)
@@ -33,6 +37,10 @@ module Errmine
       warn "[Errmine] Middleware error: #{e.message}"
     end
 
+    # Builds context hash from Rack environment
+    #
+    # @param env [Hash] the Rack environment
+    # @return [Hash] context with url, method, and user info
     def build_context(env)
       context = {}
 
