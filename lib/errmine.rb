@@ -29,6 +29,9 @@ module Errmine
     # @return [String] Application name shown in issues
     attr_accessor :app_name
 
+    # @return [Array<String>] Default tags to add to all issues
+    attr_accessor :default_tags
+
     # @return [Boolean] Whether notifications are enabled
     attr_accessor :enabled
 
@@ -37,13 +40,14 @@ module Errmine
 
     # Initializes configuration with defaults from environment variables
     def initialize
-      @redmine_url = ENV.fetch('ERRMINE_REDMINE_URL', nil)
-      @api_key     = ENV.fetch('ERRMINE_API_KEY', nil)
-      @project_id  = ENV['ERRMINE_PROJECT'] || 'bug-tracker'
-      @tracker_id  = 1
-      @app_name    = ENV['ERRMINE_APP_NAME'] || 'unknown'
-      @enabled     = true
-      @cooldown    = 300
+      @redmine_url  = ENV.fetch('ERRMINE_REDMINE_URL', nil)
+      @api_key      = ENV.fetch('ERRMINE_API_KEY', nil)
+      @project_id   = ENV['ERRMINE_PROJECT'] || 'bug-tracker'
+      @tracker_id   = 1
+      @app_name     = ENV['ERRMINE_APP_NAME'] || 'unknown'
+      @default_tags = []
+      @enabled      = true
+      @cooldown     = 300
     end
 
     # Checks if the configuration has required values
@@ -91,6 +95,25 @@ module Errmine
       Notifier.instance.notify(exception, context)
     rescue StandardError => e
       warn "[Errmine] Failed to notify: #{e.message}"
+      nil
+    end
+
+    # Creates a custom issue in Redmine
+    #
+    # @param subject [String] issue subject/title
+    # @param description [String] issue description (Textile format)
+    # @param options [Hash] optional keyword arguments
+    # @option options [String] :project_id Redmine project identifier
+    # @option options [Integer] :tracker_id Redmine tracker ID
+    # @option options [Array<String>] :tags tags to add to the issue
+    # @return [Hash, nil] the created issue or nil on failure
+    def create_issue(subject:, description:, **options)
+      return unless configuration.enabled
+      return unless configuration.valid?
+
+      Notifier.instance.create_custom_issue(subject: subject, description: description, **options)
+    rescue StandardError => e
+      warn "[Errmine] Failed to create issue: #{e.message}"
       nil
     end
   end

@@ -100,6 +100,71 @@ RSpec.describe Errmine do
     end
   end
 
+  describe '.create_issue' do
+    context 'when not configured' do
+      it 'returns nil without error' do
+        expect(described_class.create_issue(subject: 'Test', description: 'Test')).to be_nil
+      end
+    end
+
+    context 'when disabled' do
+      before do
+        configure_errmine
+        described_class.configuration.enabled = false
+      end
+
+      it 'returns nil' do
+        expect(described_class.create_issue(subject: 'Test', description: 'Test')).to be_nil
+      end
+    end
+
+    context 'when configured' do
+      before { configure_errmine }
+
+      it 'delegates to Notifier' do
+        stub_request(:post, /redmine\.example\.com/)
+          .to_return(status: 201, body: '{"issue":{"id":1}}')
+
+        result = described_class.create_issue(
+          subject: 'Custom issue',
+          description: 'Custom description'
+        )
+
+        expect(result).to be_a(Hash)
+        expect(result['id']).to eq(1)
+      end
+
+      it 'passes options to Notifier' do
+        stub_request(:post, /redmine\.example\.com/)
+          .to_return(status: 201, body: '{"issue":{"id":1}}')
+
+        described_class.create_issue(
+          subject: 'Test',
+          description: 'Test',
+          tracker_id: 5,
+          project_id: 'other'
+        )
+
+        expect(WebMock).to(have_requested(:post, /redmine\.example\.com/)
+          .with do |req|
+            body = JSON.parse(req.body)
+            body['issue']['tracker_id'] == 5 && body['issue']['project_id'] == 'other'
+          end)
+      end
+    end
+
+    context 'when notifier raises an error' do
+      before { configure_errmine }
+
+      it 'catches the error and returns nil' do
+        allow(Errmine::Notifier.instance).to receive(:create_custom_issue).and_raise(StandardError, 'Test error')
+
+        expect { described_class.create_issue(subject: 'Test', description: 'Test') }.not_to raise_error
+        expect(described_class.create_issue(subject: 'Test', description: 'Test')).to be_nil
+      end
+    end
+  end
+
   describe Errmine::Configuration do
     describe '#initialize' do
       context 'with environment variables' do
@@ -136,9 +201,19 @@ RSpec.describe Errmine do
           expect(config.project_id).to eq('bug-tracker')
           expect(config.tracker_id).to eq(1)
           expect(config.app_name).to eq('unknown')
+          expect(config.default_tags).to eq([])
           expect(config.enabled).to be(true)
           expect(config.cooldown).to eq(300)
         end
+      end
+    end
+
+    describe '#default_tags' do
+      it 'can be set to an array of strings' do
+        config = described_class.new
+        config.default_tags = %w[production app-errors]
+
+        expect(config.default_tags).to eq(%w[production app-errors])
       end
     end
 

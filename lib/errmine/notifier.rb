@@ -62,6 +62,38 @@ module Errmine
       @mutex.synchronize { @cache.clear }
     end
 
+    # Creates a custom issue in Redmine
+    #
+    # @param subject [String] issue subject/title
+    # @param description [String] issue description (Textile format)
+    # @param options [Hash] optional overrides
+    # @option options [String] :project_id Redmine project identifier
+    # @option options [Integer] :tracker_id Redmine tracker ID
+    # @option options [Array<String>] :tags tags to add to the issue
+    # @return [Hash, nil] the created issue or nil on failure
+    def create_custom_issue(subject:, description:, **options)
+      uri = build_uri('/issues.json')
+
+      issue_data = {
+        project_id: options[:project_id] || config.project_id,
+        tracker_id: options[:tracker_id] || config.tracker_id,
+        subject: subject,
+        description: description
+      }
+
+      tags = build_tag_list(options[:tags])
+      issue_data[:tag_list] = tags unless tags.empty?
+
+      response = http_post(uri, { issue: issue_data })
+      return nil unless response
+
+      data = JSON.parse(response.body)
+      data['issue']
+    rescue JSON::ParserError => e
+      warn "[Errmine] Failed to parse response: #{e.message}"
+      nil
+    end
+
     private
 
     # Returns the Errmine configuration
@@ -71,13 +103,23 @@ module Errmine
       Errmine.configuration
     end
 
+    # Builds a combined tag list from default tags and provided tags
+    #
+    # @param tags [Array<String>, nil] additional tags to include
+    # @return [Array<String>] combined unique tags
+    def build_tag_list(tags)
+      combined = config.default_tags.dup
+      combined.concat(Array(tags)) if tags
+      combined.uniq
+    end
+
     # Generates an 8-character checksum for the exception
     #
     # @param exception [Exception]
     # @return [String]
     def generate_checksum(exception)
       first_app_line = first_app_backtrace_line(exception)
-      data = "#{exception.class}:#{exception.message}:#{first_app_line}"
+      data = "#{config.app_name}:#{exception.class}:#{exception.message}:#{first_app_line}"
       Digest::MD5.hexdigest(data)[0, 8]
     end
 
@@ -167,16 +209,17 @@ module Errmine
       subject = build_subject(checksum, 1, exception)
       description = build_description(exception, context)
 
-      payload = {
-        issue: {
-          project_id: config.project_id,
-          tracker_id: config.tracker_id,
-          subject: subject,
-          description: description
-        }
+      issue_data = {
+        project_id: config.project_id,
+        tracker_id: config.tracker_id,
+        subject: subject,
+        description: description
       }
 
-      response = http_post(uri, payload)
+      tags = build_tag_list(context[:tags])
+      issue_data[:tag_list] = tags unless tags.empty?
+
+      response = http_post(uri, { issue: issue_data })
       return nil unless response
 
       data = JSON.parse(response.body)
@@ -225,7 +268,7 @@ module Errmine
       truncated = message.length > SUBJECT_MESSAGE_LENGTH ? "#{message[0, SUBJECT_MESSAGE_LENGTH]}..." : message
       truncated = truncated.gsub(/[\r\n]+/, ' ').strip
 
-      "[#{checksum}][#{count}] #{exception.class}: #{truncated}"
+      "[#{config.app_name}][#{checksum}][#{count}] #{exception.class}: #{truncated}"
     end
 
     # Builds the issue description in Textile format
