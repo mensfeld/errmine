@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="misc/logo.png" alt="Errmine" width="300"/>
+  <img src="misc/logo.png" alt="Errmine" width="600"/>
 </p>
 
 # Errmine
