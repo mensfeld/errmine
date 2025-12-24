@@ -322,6 +322,59 @@ RSpec.describe Errmine::Notifier do
 
       expect { notifier.notify(exception) }.not_to raise_error
     end
+
+    it 'handles exception with empty backtrace array' do
+      exception = StandardError.new('Empty backtrace')
+      allow(exception).to receive(:backtrace).and_return([])
+
+      expect { notifier.notify(exception) }.not_to raise_error
+    end
+  end
+
+  describe 'cache management' do
+    before { stub_redmine_api }
+
+    it 'cleans up old cache entries when cache is full' do
+      Errmine.configuration.cooldown = 0.001
+
+      # Fill the cache
+      (Errmine::Notifier::MAX_CACHE_SIZE + 10).times do |i|
+        exception = sample_exception("Error #{i}")
+        notifier.notify(exception)
+        sleep(0.002) # Allow cooldown to expire
+      end
+
+      # Should not raise and should have cleaned up
+      expect { notifier.notify(sample_exception('Final error')) }.not_to raise_error
+    end
+
+    it 'removes oldest entries when cleanup does not free enough space' do
+      Errmine.configuration.cooldown = 999_999 # Very long cooldown
+
+      # Use a smaller batch to avoid timeout
+      50.times do |i|
+        exception = sample_exception("Unique error #{i} at #{Time.now.to_f}")
+        notifier.notify(exception)
+      end
+
+      # Cache should be managed
+      expect { notifier.notify(sample_exception('Another error')) }.not_to raise_error
+    end
+  end
+
+  describe 'subject extraction' do
+    before { stub_redmine_api }
+
+    it 'handles nil subject in existing issue' do
+      stub_request(:get, %r{redmine\.example\.com/issues\.json})
+        .to_return(status: 200, body: { 'issues' => [{ 'id' => 1, 'subject' => nil }] }.to_json)
+
+      allow(notifier).to receive(:generate_checksum).and_return('abcd1234')
+
+      exception = sample_exception
+      # Should not crash when trying to extract count/checksum from nil
+      expect { notifier.notify(exception) }.not_to raise_error
+    end
   end
 
   describe '#reset_cache!' do
@@ -335,6 +388,229 @@ RSpec.describe Errmine::Notifier do
       notifier.notify(exception)
 
       expect(WebMock).to have_requested(:post, %r{redmine\.example\.com/issues\.json}).twice
+    end
+  end
+
+  describe '#create_custom_issue' do
+    it 'creates an issue with provided subject and description' do
+      stub_request(:post, %r{redmine\.example\.com/issues\.json})
+        .to_return(status: 201, body: '{"issue":{"id":123}}')
+
+      result = notifier.create_custom_issue(
+        subject: 'Deployment failed',
+        description: 'Build log attached'
+      )
+
+      expect(result).to be_a(Hash)
+      expect(result['id']).to eq(123)
+    end
+
+    it 'sends correct payload structure' do
+      stub_request(:post, %r{redmine\.example\.com/issues\.json})
+        .to_return(status: 201, body: '{"issue":{"id":1}}')
+
+      notifier.create_custom_issue(
+        subject: 'Test subject',
+        description: 'Test description'
+      )
+
+      expect(WebMock).to(have_requested(:post, %r{redmine\.example\.com/issues\.json})
+        .with do |req|
+          body = JSON.parse(req.body)
+          body['issue']['subject'] == 'Test subject' &&
+            body['issue']['description'] == 'Test description' &&
+            body['issue']['project_id'] == 'test-project' &&
+            body['issue']['tracker_id'] == 1
+        end)
+    end
+
+    it 'allows overriding project_id' do
+      stub_request(:post, %r{redmine\.example\.com/issues\.json})
+        .to_return(status: 201, body: '{"issue":{"id":1}}')
+
+      notifier.create_custom_issue(
+        subject: 'Test',
+        description: 'Test',
+        project_id: 'other-project'
+      )
+
+      expect(WebMock).to(have_requested(:post, %r{redmine\.example\.com/issues\.json})
+        .with { |req| JSON.parse(req.body)['issue']['project_id'] == 'other-project' })
+    end
+
+    it 'allows overriding tracker_id' do
+      stub_request(:post, %r{redmine\.example\.com/issues\.json})
+        .to_return(status: 201, body: '{"issue":{"id":1}}')
+
+      notifier.create_custom_issue(
+        subject: 'Test',
+        description: 'Test',
+        tracker_id: 3
+      )
+
+      expect(WebMock).to(have_requested(:post, %r{redmine\.example\.com/issues\.json})
+        .with { |req| JSON.parse(req.body)['issue']['tracker_id'] == 3 })
+    end
+
+    it 'returns nil on HTTP error' do
+      stub_request(:post, %r{redmine\.example\.com/issues\.json})
+        .to_return(status: 500, body: 'Internal Server Error')
+
+      result = notifier.create_custom_issue(
+        subject: 'Test',
+        description: 'Test'
+      )
+
+      expect(result).to be_nil
+    end
+
+    it 'returns nil on invalid JSON response' do
+      stub_request(:post, %r{redmine\.example\.com/issues\.json})
+        .to_return(status: 201, body: 'not json')
+
+      result = notifier.create_custom_issue(
+        subject: 'Test',
+        description: 'Test'
+      )
+
+      expect(result).to be_nil
+    end
+
+    it 'handles connection errors' do
+      stub_request(:post, %r{redmine\.example\.com/issues\.json})
+        .to_raise(Errno::ECONNREFUSED)
+
+      expect do
+        notifier.create_custom_issue(subject: 'Test', description: 'Test')
+      end.not_to raise_error
+    end
+
+    context 'with tags' do
+      it 'includes tags in payload when provided' do
+        stub_request(:post, %r{redmine\.example\.com/issues\.json})
+          .to_return(status: 201, body: '{"issue":{"id":1}}')
+
+        notifier.create_custom_issue(
+          subject: 'Test',
+          description: 'Test',
+          tags: %w[bug critical]
+        )
+
+        expect(WebMock).to(have_requested(:post, %r{redmine\.example\.com/issues\.json})
+          .with do |req|
+            body = JSON.parse(req.body)
+            body['issue']['tag_list'] == %w[bug critical]
+          end)
+      end
+
+      it 'does not include tag_list when tags are empty' do
+        stub_request(:post, %r{redmine\.example\.com/issues\.json})
+          .to_return(status: 201, body: '{"issue":{"id":1}}')
+
+        notifier.create_custom_issue(
+          subject: 'Test',
+          description: 'Test',
+          tags: []
+        )
+
+        expect(WebMock).to(have_requested(:post, %r{redmine\.example\.com/issues\.json})
+          .with do |req|
+            body = JSON.parse(req.body)
+            !body['issue'].key?('tag_list')
+          end)
+      end
+
+      it 'does not include tag_list when tags are not provided' do
+        stub_request(:post, %r{redmine\.example\.com/issues\.json})
+          .to_return(status: 201, body: '{"issue":{"id":1}}')
+
+        notifier.create_custom_issue(
+          subject: 'Test',
+          description: 'Test'
+        )
+
+        expect(WebMock).to(have_requested(:post, %r{redmine\.example\.com/issues\.json})
+          .with do |req|
+            body = JSON.parse(req.body)
+            !body['issue'].key?('tag_list')
+          end)
+      end
+
+      it 'combines default_tags with provided tags' do
+        Errmine.configuration.default_tags = %w[app-errors production]
+
+        stub_request(:post, %r{redmine\.example\.com/issues\.json})
+          .to_return(status: 201, body: '{"issue":{"id":1}}')
+
+        notifier.create_custom_issue(
+          subject: 'Test',
+          description: 'Test',
+          tags: ['critical']
+        )
+
+        expect(WebMock).to(have_requested(:post, %r{redmine\.example\.com/issues\.json})
+          .with do |req|
+            body = JSON.parse(req.body)
+            body['issue']['tag_list'] == %w[app-errors production critical]
+          end)
+      end
+
+      it 'deduplicates tags' do
+        Errmine.configuration.default_tags = %w[production errors]
+
+        stub_request(:post, %r{redmine\.example\.com/issues\.json})
+          .to_return(status: 201, body: '{"issue":{"id":1}}')
+
+        notifier.create_custom_issue(
+          subject: 'Test',
+          description: 'Test',
+          tags: %w[production critical]
+        )
+
+        expect(WebMock).to(have_requested(:post, %r{redmine\.example\.com/issues\.json})
+          .with do |req|
+            body = JSON.parse(req.body)
+            body['issue']['tag_list'] == %w[production errors critical]
+          end)
+      end
+    end
+  end
+
+  describe '#notify with tags' do
+    it 'includes tags when creating new issue' do
+      stub_request(:get, %r{redmine\.example\.com/issues\.json})
+        .to_return(status: 200, body: '{"issues":[]}')
+
+      stub_request(:post, %r{redmine\.example\.com/issues\.json})
+        .to_return(status: 201, body: '{"issue":{"id":1}}')
+
+      exception = sample_exception
+      notifier.notify(exception, { tags: %w[api user-facing] })
+
+      expect(WebMock).to(have_requested(:post, %r{redmine\.example\.com/issues\.json})
+        .with do |req|
+          body = JSON.parse(req.body)
+          body['issue']['tag_list'] == %w[api user-facing]
+        end)
+    end
+
+    it 'uses default_tags when no tags provided' do
+      Errmine.configuration.default_tags = ['error-tracking']
+
+      stub_request(:get, %r{redmine\.example\.com/issues\.json})
+        .to_return(status: 200, body: '{"issues":[]}')
+
+      stub_request(:post, %r{redmine\.example\.com/issues\.json})
+        .to_return(status: 201, body: '{"issue":{"id":1}}')
+
+      exception = sample_exception
+      notifier.notify(exception)
+
+      expect(WebMock).to(have_requested(:post, %r{redmine\.example\.com/issues\.json})
+        .with do |req|
+          body = JSON.parse(req.body)
+          body['issue']['tag_list'] == ['error-tracking']
+        end)
     end
   end
 end

@@ -49,3 +49,9 @@ RSpec/MultipleMemoizedHelpers:
 
 RSpec/IdenticalEqualityAssertion:
   Enabled: false
+
+RSpec/VerifiedDoubles:
+  Enabled: false
+
+Style/ArgumentsForwarding:
+  Enabled: false
