@@ -12,7 +12,7 @@ Gem::Specification.new do |spec|
   spec.homepage      = 'https://github.com/mensfeld/errmine'
   spec.license       = 'MIT'
 
-  spec.required_ruby_version = '>= 3.3.0'
+  spec.required_ruby_version = '>= 4.0.0'
 
   spec.files         = Dir['lib/**/*', 'README.md', 'LICENSE', 'CHANGELOG.md']
   spec.require_paths = ['lib']

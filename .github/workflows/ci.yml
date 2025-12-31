@@ -18,15 +18,8 @@ concurrency:
 
 jobs:
   specs:
-    name: Ruby ${{ matrix.ruby }}
+    name: RSpec
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        ruby:
-          - '4.0.0-preview2'
-          - '3.4'
-          - '3.3'
 
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
@@ -34,7 +27,7 @@ jobs:
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: ${{ matrix.ruby }}
+          ruby-version: '4.0.0'
           bundler-cache: true
 
       - name: Run RSpec
@@ -50,7 +43,7 @@ jobs:
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: '3.4.8'
+          ruby-version: '4.0.0'
           bundler-cache: true
 
       - name: Run RuboCop
@@ -66,7 +59,7 @@ jobs:
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: '3.4.8'
+          ruby-version: '4.0.0'
           bundler-cache: true
 
       - name: Run Yard-Lint
