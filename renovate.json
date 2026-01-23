@@ -4,6 +4,7 @@
     "config:recommended"
   ],
   "includePaths": [
+    ".ruby-version",
     "Gemfile",
     "errmine.gemspec",
     ".github/workflows/**"
