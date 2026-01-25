@@ -11,5 +11,4 @@ group :development, :test do
   gem 'rubocop-rspec'
   gem 'simplecov'
   gem 'webmock'
-  gem 'yard-lint'
 end
