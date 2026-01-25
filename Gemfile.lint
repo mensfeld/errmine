@@ -2,5 +2,9 @@
 
 source 'https://rubygems.org'
 
+# Code linting
+gem 'rubocop'
+gem 'rubocop-rspec'
+
 # Documentation linting
 gem 'yard-lint'

@@ -7,8 +7,6 @@ gemspec
 group :development, :test do
   gem 'rake'
   gem 'rspec'
-  gem 'rubocop'
-  gem 'rubocop-rspec'
   gem 'simplecov'
   gem 'webmock'
 end
