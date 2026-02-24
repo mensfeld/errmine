@@ -8,7 +8,8 @@
     "Gemfile",
     "Gemfile.lint",
     "errmine.gemspec",
-    ".github/workflows/**"
+    ".github/workflows/**",
+    "package.json"
   ],
   "packageRules": [
     {
