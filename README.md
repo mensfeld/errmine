@@ -4,7 +4,6 @@
 
 # Errmine
 
-[![Build Status](https://github.com/mensfeld/errmine/workflows/ci/badge.svg)](https://github.com/mensfeld/errmine/actions?query=workflow%3Aci)
 [![Gem Version](https://badge.fury.io/rb/errmine.svg)](http://badge.fury.io/rb/errmine)
 
 Dead simple, zero-dependency exception tracking for Redmine.
