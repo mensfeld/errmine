@@ -8,5 +8,6 @@ group :development, :test do
   gem 'rake'
   gem 'rspec'
   gem 'simplecov'
+  gem 'warning'
   gem 'webmock'
 end

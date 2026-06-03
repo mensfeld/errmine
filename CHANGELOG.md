@@ -1,5 +1,8 @@
 # Errmine changelog
 
+## Unreleased
+- [Enhancement] Add Ruby warning category opt-in to test helpers.
+
 ## 0.2.0 (2025-12-24)
 - [Feature] Add app name to issue title for easy identification when multiple apps report to the same Redmine project.
 - [Feature] Include app_name in checksum calculation so same errors in different apps create separate issues.
