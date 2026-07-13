@@ -24,7 +24,7 @@ require 'simplecov'
 SimpleCov.start do
   enable_coverage :branch
   minimum_coverage line: 95, branch: 80
-  add_filter '/spec/'
+  skip '/spec/'
 end
 
 require 'webmock/rspec'
