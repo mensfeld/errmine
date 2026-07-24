@@ -6,7 +6,6 @@ require 'json'
 require 'digest'
 require 'singleton'
 
-# @see Errmine
 module Errmine
   # Core notifier that handles exception reporting to Redmine.
   # Manages checksum generation, rate limiting, and API communication.

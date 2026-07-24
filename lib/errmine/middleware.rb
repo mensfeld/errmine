@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-# @see Errmine
 module Errmine
   # Rack middleware that catches exceptions and reports them to Redmine.
   # Re-raises the exception after reporting to allow normal error handling.

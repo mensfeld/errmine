@@ -2,7 +2,6 @@
 
 require_relative 'middleware'
 
-# @see Errmine
 module Errmine
   # Rails integration via Railtie.
   # Automatically subscribes to Rails 7+ Error Reporting API when available.
