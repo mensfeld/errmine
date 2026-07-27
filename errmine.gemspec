@@ -18,8 +18,11 @@ Gem::Specification.new do |spec|
   spec.require_paths = ['lib']
 
   spec.metadata = {
+    'homepage_uri' => spec.homepage,
     'source_code_uri' => spec.homepage,
     'changelog_uri' => "#{spec.homepage}/blob/master/CHANGELOG.md",
+    'bug_tracker_uri' => "#{spec.homepage}/issues",
+    'documentation_uri' => spec.homepage,
     'rubygems_mfa_required' => 'true'
   }
 end
