@@ -195,7 +195,7 @@ The rate limit cache is per process, and the search and the create have no lock 
 
 To prevent flooding Redmine during error loops:
 
-- Each checksum is cached with its last occurrence time
+- Each checksum is cached with the time of its last report that passed the cooldown; reports inside the cooldown are dropped and do not restart it
 - Same error won't hit Redmine more than once per cooldown period (default: 5 minutes) in each process
 - Cache is automatically cleaned when it exceeds 500 entries
 
@@ -205,7 +205,6 @@ To prevent flooding Redmine during error loops:
 
 - Each report that passes the cooldown makes up to 2 HTTP requests to Redmine: a search, then a create or an update
 - Each request has a 5-second connect timeout (`CONNECT_TIMEOUT`) and a 10-second read timeout (`READ_TIMEOUT`)
-- A slow or unreachable Redmine delays the code that reported the error
 - Errmine's own failures (timeouts, connection and HTTP errors) never raise into your application: Errmine logs them to stderr and `Errmine.notify` returns `nil`
 
 ## Redmine Setup
