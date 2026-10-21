@@ -8,10 +8,10 @@
 
 Dead simple, zero-dependency exception tracking for Redmine.
 
-Errmine automatically creates and updates Redmine issues from Ruby/Rails exceptions. When an error occurs, it creates a new issue. When the same error occurs again, it increments a counter and adds a journal note instead of creating duplicates.
+Errmine automatically creates and updates Redmine issues from Ruby/Rails exceptions. When an error occurs, it creates a new issue. When the same error occurs again after the cooldown, it increments a counter and adds a journal note instead of creating duplicates.
 
 ```
-[a1b2c3d4][47] NoMethodError: undefined method 'foo' for nil...
+[my-app][a1b2c3d4][47] NoMethodError: undefined method 'foo' for nil...
 ```
 
 ## Why Errmine?
@@ -26,21 +26,21 @@ If you already use Redmine for project management, Errmine lets you track produc
 **vs. Exception Notification gem**
 - Automatic deduplication - same error updates existing issue instead of creating duplicates
 - Rate limiting prevents inbox/Redmine flooding during error storms
-- Occurrence counting shows error frequency at a glance
+- Occurrence counter in the subject - counts the reports that passed the cooldown, not every occurrence (at most one per error per cooldown period in each process)
 
 **vs. Rolling your own**
 - Zero dependencies - uses only Ruby stdlib
-- Handles edge cases: rate limiting, timeouts, thread safety, fail-safe error handling
+- Handles edge cases: rate limiting, timeouts, thread safety, fail-safe error handling (reporting is synchronous, see [Synchronous Reporting](#synchronous-reporting))
 - Works out of the box with Rails 7+ Error Reporting API
 
 ## Features
 
 - **Zero dependencies** - Uses only Ruby stdlib (net/http, json, digest, uri)
-- **Automatic deduplication** - Same errors update existing issues instead of creating duplicates
+- **Automatic deduplication** - Same errors update existing issues instead of creating duplicates (no lock across processes, see [Deduplication](#deduplication))
 - **Rate limiting** - Prevents flooding Redmine during error loops
 - **Rails integration** - Works with Rails 7+ Error Reporting API or as Rack middleware
 - **Thread-safe** - Safe to use in multi-threaded environments
-- **Fail-safe** - Never crashes your application, logs errors to stderr
+- **Fail-safe** - Never crashes your application, logs errors to stderr (reporting still blocks the caller, see [Synchronous Reporting](#synchronous-reporting))
 
 ## Installation
 
@@ -171,12 +171,15 @@ end
 ### Checksum Generation
 
 Each exception gets an 8-character MD5 checksum based on:
+- Application name (`app_name`)
 - Exception class name
 - Exception message
-- First application backtrace line (containing `/app/`)
+- First application backtrace line (containing `/app/`), or the first backtrace line if none contains `/app/`
+
+The same error in two applications with different `app_name` values creates two separate issues.
 
 ```
-MD5("NoMethodError:undefined method 'foo':app/controllers/users_controller.rb:45")[0..7]
+MD5("my-app:NoMethodError:undefined method 'foo':app/controllers/users_controller.rb:45")[0..7]
 # => "a1b2c3d4"
 ```
 
@@ -186,13 +189,24 @@ MD5("NoMethodError:undefined method 'foo':app/controllers/users_controller.rb:45
 2. If found: increment counter, add journal note with timestamp and backtrace
 3. If not found: create new issue
 
+The rate limit cache is per process, and the search and the create have no lock across processes. Two processes (for example, two web server workers) that report the same new error at the same time can both find no issue and create two issues.
+
 ### Rate Limiting
 
 To prevent flooding Redmine during error loops:
 
 - Each checksum is cached with its last occurrence time
-- Same error won't hit Redmine more than once per cooldown period (default: 5 minutes)
+- Same error won't hit Redmine more than once per cooldown period (default: 5 minutes) in each process
 - Cache is automatically cleaned when it exceeds 500 entries
+
+### Synchronous Reporting
+
+`Errmine.notify` runs in the thread that reports the error. This includes the Rack middleware and the Rails error subscriber, so the request or job waits until Errmine finishes.
+
+- Each report that passes the cooldown makes up to 2 HTTP requests to Redmine: a search, then a create or an update
+- Each request has a 5-second connect timeout (`CONNECT_TIMEOUT`) and a 10-second read timeout (`READ_TIMEOUT`)
+- A slow or unreachable Redmine delays the code that reported the error
+- Errmine's own failures (timeouts, connection and HTTP errors) never raise into your application: Errmine logs them to stderr and `Errmine.notify` returns `nil`
 
 ## Redmine Setup
 
@@ -210,10 +224,10 @@ To prevent flooding Redmine during error loops:
 ### Subject
 
 ```
-[{checksum}][{count}] {ExceptionClass}: {truncated message}
+[{app_name}][{checksum}][{count}] {ExceptionClass}: {truncated message}
 ```
 
-Example: `[a1b2c3d4][47] NoMethodError: undefined method 'foo' for nil...`
+Example: `[my-app][a1b2c3d4][47] NoMethodError: undefined method 'foo' for nil...`
 
 ### Description (Textile format)
 
