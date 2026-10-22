@@ -104,6 +104,7 @@ end
 | `project_id` | `ENV['ERRMINE_PROJECT']` or `'bug-tracker'` | Redmine project identifier |
 | `tracker_id` | `1` | Tracker ID (usually 1 = Bug) |
 | `app_name` | `ENV['ERRMINE_APP_NAME']` or `'unknown'` | Application name shown in issues |
+| `default_tags` | `[]` | Tags (array of strings) added to every issue Errmine creates |
 | `enabled` | `true` | Enable/disable notifications |
 | `cooldown` | `300` | Seconds between same-error notifications |
 
@@ -157,6 +158,24 @@ class ApplicationController < ActionController::Base
   end
 end
 ```
+
+### Custom Issues
+
+Create a Redmine issue with your own subject and description:
+
+```ruby
+Errmine.create_issue(
+  subject: 'Nightly import failed',
+  description: 'The import stopped at row 1200.',
+  tags: ['import']
+)
+```
+
+- `subject` and `description` are required; the description uses Textile format
+- `project_id` and `tracker_id` are optional and default to the configured values
+- `tags` is optional; Errmine adds these tags to `default_tags` and removes duplicates
+- Each call creates a new issue with one HTTP request, in the calling thread: no checksum, no deduplication, no cooldown
+- Returns the created issue as a Hash (the `issue` object from Redmine's response), or `nil` on failure. Errmine logs its own failures to stderr and does not raise them
 
 ### Disabling Notifications
 
