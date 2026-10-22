@@ -139,11 +139,16 @@ rescue => e
   Errmine.notify(e, {
     url: request.url,
     user: current_user&.email,
+    tags: ['checkout'],
     custom_field: 'any value'
   })
   raise
 end
 ```
+
+- `tags` is optional, an array of strings. When the report creates a new issue, the issue gets `default_tags` plus these tags, without duplicates
+- The issue description also gets a `**Tags:**` line with these tags (without `default_tags`)
+- When the error already has an open issue, the report updates that issue and ignores `tags`: Errmine adds no tags to the issue and no tags line to the journal note
 
 ### rescue_from in Controllers
 
