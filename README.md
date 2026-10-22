@@ -176,7 +176,7 @@ Errmine.create_issue(
 - `tags` is optional; the issue gets `default_tags` plus these tags, without duplicates
 - When `enabled` is `false`, it creates no issue and returns `nil`
 - Otherwise each call creates a new issue with one HTTP request, in the calling thread: no checksum, no deduplication, no cooldown
-- Returns the created issue as a Hash (the `issue` object from Redmine's response), or `nil` when it creates no issue. Errmine logs its own failures to stderr and does not raise them
+- Returns the created issue as a Hash (the `issue` object from Redmine's response), or `nil` when Errmine gets no created issue back (disabled, or the request or response failed). After a read timeout or an unreadable response, Redmine can still have created the issue. Errmine logs its own failures to stderr and does not raise them
 
 ### Disabling Notifications
 
