@@ -370,19 +370,15 @@ RSpec.describe Errmine::Notifier do
         notifier.notify(sample_exception('Overflow error'))
       end
 
-      def posts
-        a_request(:post, %r{redmine\.example\.com/issues\.json})
-      end
-
       it 'reports the new error' do
-        expect(posts).to have_been_made.times(max + 1)
+        expect(WebMock).to have_requested(:post, %r{redmine\.example\.com/issues\.json}).times(max + 1)
       end
 
       it 'removes the oldest entries so they are reported again' do
         notifier.notify(sample_exception('Distinct error 0'))
         notifier.notify(sample_exception("Distinct error #{kept_from - 1}"))
 
-        expect(posts).to have_been_made.times(max + 3)
+        expect(WebMock).to have_requested(:post, %r{redmine\.example\.com/issues\.json}).times(max + 3)
       end
 
       it 'keeps the newer entries rate limited' do
@@ -390,7 +386,7 @@ RSpec.describe Errmine::Notifier do
         notifier.notify(sample_exception("Distinct error #{max - 1}"))
         notifier.notify(sample_exception('Overflow error'))
 
-        expect(posts).to have_been_made.times(max + 1)
+        expect(WebMock).to have_requested(:post, %r{redmine\.example\.com/issues\.json}).times(max + 1)
       end
     end
   end
