@@ -147,8 +147,8 @@ end
 ```
 
 - `tags` is optional, an array of strings. When the report creates a new issue, the issue gets `default_tags` plus these tags, without duplicates
-- The issue description also gets a `**Tags:**` line with these tags (without `default_tags`)
-- When the error already has an open issue, the report updates that issue and ignores `tags`: Errmine adds no tags to the issue and no tags line to the journal note
+- The issue description also gets a `**Tags:**` line with these tags as a Ruby array, for example `**Tags:** ["checkout"]` (without `default_tags`)
+- When a report that passes the cooldown finds an open issue for the error, it updates that issue and ignores `tags`: Errmine adds no tags to the issue and no tags line to the journal note
 
 ### rescue_from in Controllers
 
