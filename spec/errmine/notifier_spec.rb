@@ -361,16 +361,37 @@ RSpec.describe Errmine::Notifier do
       expect { notifier.notify(sample_exception('Another error')) }.not_to raise_error
     end
 
-    it 'reports a new error when the cache is full and no entry has expired' do
-      Errmine::Notifier::MAX_CACHE_SIZE.times do |i|
-        notifier.notify(sample_exception("Distinct error #{i}"))
+    context 'when the cache is full and no entry has expired' do
+      let(:max) { Errmine::Notifier::MAX_CACHE_SIZE }
+      let(:kept_from) { max / 2 }
+
+      before do
+        max.times { |i| notifier.notify(sample_exception("Distinct error #{i}")) }
+        notifier.notify(sample_exception('Overflow error'))
       end
 
-      notifier.notify(sample_exception('Overflow error'))
-      notifier.notify(sample_exception("Distinct error #{Errmine::Notifier::MAX_CACHE_SIZE - 1}"))
+      def posts
+        a_request(:post, %r{redmine\.example\.com/issues\.json})
+      end
 
-      expect(WebMock).to have_requested(:post, %r{redmine\.example\.com/issues\.json})
-        .times(Errmine::Notifier::MAX_CACHE_SIZE + 1)
+      it 'reports the new error' do
+        expect(posts).to have_been_made.times(max + 1)
+      end
+
+      it 'removes the oldest entries so they are reported again' do
+        notifier.notify(sample_exception('Distinct error 0'))
+        notifier.notify(sample_exception("Distinct error #{kept_from - 1}"))
+
+        expect(posts).to have_been_made.times(max + 3)
+      end
+
+      it 'keeps the newer entries rate limited' do
+        notifier.notify(sample_exception("Distinct error #{kept_from}"))
+        notifier.notify(sample_exception("Distinct error #{max - 1}"))
+        notifier.notify(sample_exception('Overflow error'))
+
+        expect(posts).to have_been_made.times(max + 1)
+      end
     end
   end
 
