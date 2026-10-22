@@ -2,6 +2,7 @@
 
 ## Unreleased
 - [Enhancement] Add Ruby warning category opt-in to test helpers.
+- [Fix] Fix cache cleanup crashing with `NoMethodError` when the cache exceeds 500 entries within one cooldown, which dropped every new error until entries expired.
 
 ## 0.2.0 (2025-12-24)
 - [Feature] Add app name to issue title for easy identification when multiple apps report to the same Redmine project.

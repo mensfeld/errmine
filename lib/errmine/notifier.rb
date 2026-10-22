@@ -168,8 +168,8 @@ module Errmine
       return unless @cache.size >= MAX_CACHE_SIZE
 
       sorted = @cache.sort_by { |_, time| time }
-      to_remove = sorted.first(@cache.size - (MAX_CACHE_SIZE / 2))
-      to_remove.each_key { |key| @cache.delete(key) }
+      to_remove = sorted.first(@cache.size - (MAX_CACHE_SIZE / 2)).map(&:first)
+      to_remove.each { |key| @cache.delete(key) }
     end
 
     # Finds an existing open issue with the given checksum
