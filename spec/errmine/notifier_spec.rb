@@ -360,6 +360,18 @@ RSpec.describe Errmine::Notifier do
       # Cache should be managed
       expect { notifier.notify(sample_exception('Another error')) }.not_to raise_error
     end
+
+    it 'reports a new error when the cache is full and no entry has expired' do
+      Errmine::Notifier::MAX_CACHE_SIZE.times do |i|
+        notifier.notify(sample_exception("Distinct error #{i}"))
+      end
+
+      notifier.notify(sample_exception('Overflow error'))
+      notifier.notify(sample_exception("Distinct error #{Errmine::Notifier::MAX_CACHE_SIZE - 1}"))
+
+      expect(WebMock).to have_requested(:post, %r{redmine\.example\.com/issues\.json})
+        .times(Errmine::Notifier::MAX_CACHE_SIZE + 1)
+    end
   end
 
   describe 'subject extraction' do
