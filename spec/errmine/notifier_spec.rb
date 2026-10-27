@@ -136,6 +136,95 @@ RSpec.describe Errmine::Notifier do
       end
     end
 
+    context 'when a report fails' do
+      let(:now) { Time.now }
+      let(:exception) { sample_exception('Flaky error') }
+
+      before do
+        allow(Time).to receive(:now).and_return(now)
+        allow(notifier).to receive(:warn)
+
+        stub_request(:get, %r{redmine\.example\.com/issues\.json})
+          .to_return(status: [503, 'Service Unavailable'])
+          .then.to_return(status: 200, body: { 'issues' => [] }.to_json)
+
+        stub_request(:post, %r{redmine\.example\.com/issues\.json})
+          .to_return(status: 201, body: { 'issue' => { 'id' => 1 } }.to_json)
+      end
+
+      it 'reports the error again after the retry delay' do
+        notifier.notify(exception)
+
+        allow(Time).to receive(:now).and_return(now + 61)
+        result = notifier.notify(exception)
+
+        expect(result).to eq('id' => 1)
+        expect(WebMock).to have_requested(:get, %r{redmine\.example\.com/issues\.json}).twice
+        expect(WebMock).to have_requested(:post, %r{redmine\.example\.com/issues\.json}).once
+      end
+
+      it 'makes no request during the retry delay' do
+        notifier.notify(exception)
+
+        allow(Time).to receive(:now).and_return(now + 59)
+        result = notifier.notify(exception)
+
+        expect(result).to be_nil
+        expect(WebMock).to have_requested(:get, %r{redmine\.example\.com/issues\.json}).once
+        expect(WebMock).not_to have_requested(:post, %r{redmine\.example\.com/issues\.json})
+      end
+
+      it 'retries after the cooldown when the cooldown is shorter than the retry delay' do
+        Errmine.configuration.cooldown = 10
+        notifier.notify(exception)
+
+        allow(Time).to receive(:now).and_return(now + 11)
+        notifier.notify(exception)
+
+        expect(WebMock).to have_requested(:post, %r{redmine\.example\.com/issues\.json}).once
+      end
+
+      it 'writes one warning without the API key' do
+        warning = '[Errmine] Failed to report StandardError (HTTP 503: Service Unavailable), retrying in 60s'
+        notifier.notify(exception)
+
+        expect(notifier).to have_received(:warn).once.with(warning)
+      end
+
+      it 'warns with the exception message on a timeout' do
+        stub_request(:get, %r{redmine\.example\.com/issues\.json}).to_timeout
+        warning = /\A\[Errmine\] Failed to report StandardError \(Timeout: .+\), retrying in 60s\z/
+        notifier.notify(exception)
+
+        expect(notifier).to have_received(:warn).once.with(warning)
+      end
+    end
+
+    context 'when a report succeeds' do
+      let(:now) { Time.now }
+      let(:exception) { sample_exception('Steady error') }
+
+      before do
+        stub_redmine_api
+        allow(Time).to receive(:now).and_return(now)
+        notifier.notify(exception)
+      end
+
+      it 'skips the error for the whole cooldown' do
+        allow(Time).to receive(:now).and_return(now + Errmine.configuration.cooldown - 1)
+        notifier.notify(exception)
+
+        expect(WebMock).to have_requested(:post, %r{redmine\.example\.com/issues\.json}).once
+      end
+
+      it 'reports the error again after the cooldown' do
+        allow(Time).to receive(:now).and_return(now + Errmine.configuration.cooldown + 1)
+        notifier.notify(exception)
+
+        expect(WebMock).to have_requested(:post, %r{redmine\.example\.com/issues\.json}).twice
+      end
+    end
+
     context 'with context' do
       before { stub_redmine_api }
 

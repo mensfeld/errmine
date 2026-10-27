@@ -24,6 +24,14 @@ module Errmine
     # Maximum length of exception message in issue subject
     SUBJECT_MESSAGE_LENGTH = 60
 
+    # Seconds before an error whose report failed is reported again (capped by the cooldown)
+    FAILED_REPORT_RETRY_DELAY = 60
+
+    # Raised internally when a Redmine request fails
+    class RequestError < StandardError; end
+
+    private_constant :FAILED_REPORT_RETRY_DELAY, :RequestError
+
     # Initializes the notifier with empty cache
     def initialize
       @cache = {}
@@ -52,6 +60,10 @@ module Errmine
       else
         update_issue(result, exception, context)
       end
+    rescue RequestError => e
+      retry_delay = schedule_retry(checksum)
+      warn "[Errmine] Failed to report #{exception.class} (#{e.message}), retrying in #{retry_delay}s"
+      nil
     end
 
     # Clears the rate limit cache
@@ -84,12 +96,14 @@ module Errmine
       issue_data[:tag_list] = tags unless tags.empty?
 
       response = http_post(uri, { issue: issue_data })
-      return nil unless response
 
       data = JSON.parse(response.body)
       data['issue']
     rescue JSON::ParserError => e
       warn "[Errmine] Failed to parse response: #{e.message}"
+      nil
+    rescue RequestError => e
+      warn "[Errmine] #{e.message}"
       nil
     end
 
@@ -158,6 +172,20 @@ module Errmine
       end
     end
 
+    # Shortens the rate limit of a checksum whose report failed to the retry delay
+    #
+    # @param checksum [String]
+    # @return [Numeric] seconds until the checksum may be reported again
+    def schedule_retry(checksum)
+      retry_delay = [FAILED_REPORT_RETRY_DELAY, config.cooldown].min
+
+      @mutex.synchronize do
+        @cache[checksum] = Time.now - config.cooldown + retry_delay
+      end
+
+      retry_delay
+    end
+
     # Cleans up old entries from the cache
     #
     # @return [void]
@@ -175,7 +203,8 @@ module Errmine
     # Finds an existing open issue with the given checksum
     #
     # @param checksum [String]
-    # @return [Hash, Symbol, nil] the issue hash, :error on failure, or nil if not found
+    # @return [Hash, Symbol, nil] the issue hash, :error on an unparsable response, or nil if not found
+    # @raise [RequestError] when the request fails
     def find_existing_issue(checksum)
       uri = build_uri('/issues.json')
       uri.query = URI.encode_www_form(
@@ -185,7 +214,6 @@ module Errmine
       )
 
       response = http_get(uri)
-      return :error unless response
 
       data = JSON.parse(response.body)
       issues = data['issues'] || []
@@ -202,6 +230,7 @@ module Errmine
     # @param context [Hash]
     # @param checksum [String]
     # @return [Hash, nil]
+    # @raise [RequestError] when the request fails
     def create_issue(exception, context, checksum)
       uri = build_uri('/issues.json')
 
@@ -219,7 +248,6 @@ module Errmine
       issue_data[:tag_list] = tags unless tags.empty?
 
       response = http_post(uri, { issue: issue_data })
-      return nil unless response
 
       data = JSON.parse(response.body)
       data['issue']
@@ -233,7 +261,8 @@ module Errmine
     # @param issue [Hash]
     # @param exception [Exception]
     # @param context [Hash]
-    # @return [Net::HTTPResponse, nil]
+    # @return [Net::HTTPResponse]
+    # @raise [RequestError] when the request fails
     def update_issue(issue, exception, context)
       issue_id = issue['id']
       current_subject = issue['subject']
@@ -366,7 +395,8 @@ module Errmine
     # Performs an HTTP GET request
     #
     # @param uri [URI]
-    # @return [Net::HTTPResponse, nil]
+    # @return [Net::HTTPResponse]
+    # @raise [RequestError] when the request fails
     def http_get(uri)
       http_request(uri) do |http|
         request = Net::HTTP::Get.new(uri)
@@ -379,7 +409,8 @@ module Errmine
     #
     # @param uri [URI]
     # @param payload [Hash]
-    # @return [Net::HTTPResponse, nil]
+    # @return [Net::HTTPResponse]
+    # @raise [RequestError] when the request fails
     def http_post(uri, payload)
       http_request(uri) do |http|
         request = Net::HTTP::Post.new(uri)
@@ -394,7 +425,8 @@ module Errmine
     #
     # @param uri [URI]
     # @param payload [Hash]
-    # @return [Net::HTTPResponse, nil]
+    # @return [Net::HTTPResponse]
+    # @raise [RequestError] when the request fails
     def http_put(uri, payload)
       http_request(uri) do |http|
         request = Net::HTTP::Put.new(uri)
@@ -405,10 +437,11 @@ module Errmine
       end
     end
 
-    # Executes an HTTP request with error handling
+    # Executes an HTTP request, converting failures into RequestError
     #
     # @param uri [URI]
-    # @return [Net::HTTPResponse, nil]
+    # @return [Net::HTTPResponse]
+    # @raise [RequestError] when the request fails
     def http_request(uri)
       http = Net::HTTP.new(uri.host, uri.port)
       http.use_ssl = uri.scheme == 'https'
@@ -417,21 +450,17 @@ module Errmine
 
       response = yield(http)
 
-      unless response.is_a?(Net::HTTPSuccess)
-        warn "[Errmine] HTTP #{response.code}: #{response.message}"
-        return nil
-      end
+      raise RequestError, "HTTP #{response.code}: #{response.message}" unless response.is_a?(Net::HTTPSuccess)
 
       response
+    rescue RequestError
+      raise
     rescue Net::OpenTimeout, Net::ReadTimeout => e
-      warn "[Errmine] Timeout: #{e.message}"
-      nil
+      raise RequestError, "Timeout: #{e.message}"
     rescue Errno::ECONNREFUSED, Errno::EHOSTUNREACH, SocketError => e
-      warn "[Errmine] Connection error: #{e.message}"
-      nil
+      raise RequestError, "Connection error: #{e.message}"
     rescue StandardError => e
-      warn "[Errmine] HTTP error: #{e.message}"
-      nil
+      raise RequestError, "HTTP error: #{e.message}"
     end
   end
 end
