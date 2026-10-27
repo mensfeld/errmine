@@ -200,6 +200,75 @@ RSpec.describe Errmine::Notifier do
       end
     end
 
+    context 'when creating the issue fails' do
+      let(:now) { Time.now }
+      let(:exception) { sample_exception('Flaky create error') }
+
+      before do
+        allow(Time).to receive(:now).and_return(now)
+        allow(notifier).to receive(:warn)
+
+        stub_request(:get, %r{redmine\.example\.com/issues\.json})
+          .to_return(status: 200, body: { 'issues' => [] }.to_json)
+
+        stub_request(:post, %r{redmine\.example\.com/issues\.json})
+          .to_return(status: [503, 'Service Unavailable'])
+          .then.to_return(status: 201, body: { 'issue' => { 'id' => 1 } }.to_json)
+
+        notifier.notify(exception)
+      end
+
+      it 'makes no request during the retry delay' do
+        allow(Time).to receive(:now).and_return(now + 59)
+        notifier.notify(exception)
+
+        expect(WebMock).to have_requested(:post, %r{redmine\.example\.com/issues\.json}).once
+      end
+
+      it 'creates the issue after the retry delay' do
+        allow(Time).to receive(:now).and_return(now + 61)
+        result = notifier.notify(exception)
+
+        expect(result).to eq('id' => 1)
+        expect(WebMock).to have_requested(:post, %r{redmine\.example\.com/issues\.json}).twice
+      end
+    end
+
+    context 'when updating the issue fails' do
+      let(:now) { Time.now }
+      let(:exception) { sample_exception('Flaky update error') }
+
+      before do
+        allow(Time).to receive(:now).and_return(now)
+        allow(notifier).to receive(:warn)
+        allow(notifier).to receive(:generate_checksum).and_return('abcd1234')
+
+        stub_request(:get, %r{redmine\.example\.com/issues\.json})
+          .to_return(status: 200, body: { 'issues' => [{ 'id' => 456,
+                                                         'subject' => '[abcd1234][5] StandardError: Test' }] }.to_json)
+
+        stub_request(:put, %r{redmine\.example\.com/issues/456\.json})
+          .to_return(status: [503, 'Service Unavailable'])
+          .then.to_return(status: 200, body: '{}')
+
+        notifier.notify(exception)
+      end
+
+      it 'makes no request during the retry delay' do
+        allow(Time).to receive(:now).and_return(now + 59)
+        notifier.notify(exception)
+
+        expect(WebMock).to have_requested(:put, %r{redmine\.example\.com/issues/456\.json}).once
+      end
+
+      it 'updates the issue after the retry delay' do
+        allow(Time).to receive(:now).and_return(now + 61)
+        notifier.notify(exception)
+
+        expect(WebMock).to have_requested(:put, %r{redmine\.example\.com/issues/456\.json}).twice
+      end
+    end
+
     context 'when a report succeeds' do
       let(:now) { Time.now }
       let(:exception) { sample_exception('Steady error') }
@@ -570,9 +639,10 @@ RSpec.describe Errmine::Notifier do
         .with { |req| JSON.parse(req.body)['issue']['tracker_id'] == 3 })
     end
 
-    it 'returns nil on HTTP error' do
+    it 'returns nil and warns once on HTTP error' do
+      allow(notifier).to receive(:warn)
       stub_request(:post, %r{redmine\.example\.com/issues\.json})
-        .to_return(status: 500, body: 'Internal Server Error')
+        .to_return(status: [500, 'Internal Server Error'])
 
       result = notifier.create_custom_issue(
         subject: 'Test',
@@ -580,6 +650,7 @@ RSpec.describe Errmine::Notifier do
       )
 
       expect(result).to be_nil
+      expect(notifier).to have_received(:warn).once.with('[Errmine] HTTP 500: Internal Server Error')
     end
 
     it 'returns nil on invalid JSON response' do
