@@ -106,7 +106,7 @@ end
 | `app_name` | `ENV['ERRMINE_APP_NAME']` or `'unknown'` | Application name shown in issues |
 | `default_tags` | `[]` | Tags (array of strings) added to every issue Errmine creates |
 | `enabled` | `true` | Enable/disable notifications and custom issues |
-| `cooldown` | `300` | Seconds between same-error notifications |
+| `cooldown` | `300` | Seconds between same-error notifications (a failed report is retried after 60 seconds, or the cooldown if shorter) |
 
 ## Usage
 
@@ -221,7 +221,8 @@ The rate limit cache is per process, and the search and the create have no lock 
 To prevent flooding Redmine during error loops:
 
 - Each checksum is cached with the time of its last report that passed the cooldown; reports inside the cooldown are dropped and do not restart it
-- Same error won't hit Redmine more than once per cooldown period (default: 5 minutes) in each process
+- Same error won't hit Redmine more than once per cooldown period (default: 5 minutes) in each process, unless the report fails
+- When a report fails (HTTP error status, timeout, connection error), Errmine logs one warning to stderr and retries the same error after 60 seconds (or after the cooldown, if it is shorter) instead of dropping it for the whole cooldown. During a Redmine outage the same error can call Redmine once per 60 seconds in each process
 - Cache is automatically cleaned when it exceeds 500 entries
 
 ### Synchronous Reporting
