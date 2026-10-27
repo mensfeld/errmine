@@ -146,6 +146,7 @@ rescue => e
 end
 ```
 
+- When set, `url` and `user` add the `**URL:**` and `**User:**` lines to the issue description. Every other key adds one `**Key:** value` line, with the key name capitalized and the value as Ruby text, for example `**Custom_field:** any value`
 - `tags` is optional, an array of strings. When the report creates a new issue, the issue gets `default_tags` plus these tags, without duplicates
 - The issue description also gets a `**Tags:**` line with these tags as a Ruby array, for example `**Tags:** ["checkout"]` (without `default_tags`)
 - When a report that passes the cooldown finds an open issue for the error, it updates that issue and ignores `tags`: Errmine adds no tags to the issue and no tags line to the journal note
@@ -278,11 +279,14 @@ app/controllers/application_controller.rb:12:in `authenticate'
 Occurred again (*47x*) at 2025-01-15 10:35:00
 
 URL: /users/456
+User: user@example.com
 
 <pre>
 app/controllers/users_controller.rb:45:in `show'
 </pre>
 ```
+
+The `URL:` and `User:` lines appear when `url` and `user` are set in the context. Other context keys do not appear in the note.
 
 ## License
 
