@@ -212,7 +212,7 @@ MD5("my-app:NoMethodError:undefined method 'foo':app/controllers/users_controlle
 ### Deduplication
 
 1. Search Redmine for open issues containing `[{checksum}]` in the subject
-2. If found: increment counter, add journal note with timestamp and backtrace
+2. If found: increment the counter in the subject and add a journal note with the new count, the time, `URL:` and `User:` lines when `url` and `user` are set in the context, and the first 10 backtrace lines (see [Journal Note](#journal-note-on-subsequent-occurrences))
 3. If not found: create new issue
 
 The rate limit cache is per process, and the search and the create have no lock across processes. Two processes (for example, two web server workers) that report the same new error at the same time can both find no issue and create two issues.
