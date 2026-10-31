@@ -44,6 +44,8 @@ If you already use Redmine for project management, Errmine lets you track produc
 
 ## Installation
 
+Errmine requires Ruby `>= 4.0.0`.
+
 Add to your Gemfile:
 
 ```ruby
