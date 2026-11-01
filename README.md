@@ -125,8 +125,12 @@ For all Rails versions or any Rack-based application:
 config.middleware.use Errmine::Middleware
 
 # or config.ru (Sinatra, etc.)
+require 'errmine'
+require 'errmine/middleware'
 use Errmine::Middleware
 ```
+
+Outside Rails, `require 'errmine'` does not load `Errmine::Middleware`. Require `errmine/middleware` before you use it. In Rails, the Railtie loads it.
 
 The middleware captures request context (URL, HTTP method, user via Warden).
 
