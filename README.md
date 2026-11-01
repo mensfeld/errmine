@@ -274,6 +274,8 @@ app/controllers/application_controller.rb:12:in `authenticate'
 </pre>
 ```
 
+The `Backtrace` section holds the first 20 backtrace lines, or `No backtrace available` when the exception has no backtrace.
+
 ### Journal Note (on subsequent occurrences)
 
 ```textile
