@@ -38,6 +38,10 @@ module Errmine
     # @return [Integer] Cooldown period in seconds between same-error notifications
     attr_accessor :cooldown
 
+    # @return [Array<String, Symbol, Regexp>] query parameter names whose values the middleware
+    #   replaces with [FILTERED] before it reports the URL (String/Symbol: case-insensitive partial match)
+    attr_accessor :filter_parameters
+
     # Initializes configuration with defaults from environment variables
     def initialize
       @redmine_url  = ENV.fetch('ERRMINE_REDMINE_URL', nil)
@@ -48,6 +52,7 @@ module Errmine
       @default_tags = []
       @enabled      = true
       @cooldown     = 300
+      @filter_parameters = %w[passw email secret token _key crypt salt certificate otp ssn cvv cvc]
     end
 
     # Checks if the configuration has required values

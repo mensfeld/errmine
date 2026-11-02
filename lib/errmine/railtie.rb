@@ -10,6 +10,14 @@ module Errmine
       Rails.error.subscribe(ErrorSubscriber.new) if Rails.version >= '7.0'
     end
 
+    config.after_initialize do |app|
+      rails_filters = app.config.filter_parameters.select do |filter|
+        filter.is_a?(String) || filter.is_a?(Symbol) || filter.is_a?(Regexp)
+      end
+
+      Errmine.configuration.filter_parameters |= rails_filters
+    end
+
     # Error subscriber for Rails 7+ Error Reporting API
     class ErrorSubscriber
       # Called by Rails when an error is reported
