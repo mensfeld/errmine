@@ -88,8 +88,8 @@ module Errmine
       issue_data = {
         project_id: options[:project_id] || config.project_id,
         tracker_id: options[:tracker_id] || config.tracker_id,
-        subject: subject,
-        description: description
+        subject: to_utf8(subject),
+        description: to_utf8(description)
       }
 
       tags = build_tag_list(options[:tags])
@@ -123,7 +123,21 @@ module Errmine
     def build_tag_list(tags)
       combined = config.default_tags.dup
       combined.concat(Array(tags)) if tags
-      combined.uniq
+      combined.map { |tag| to_utf8(tag) }.uniq
+    end
+
+    # Converts a value to valid UTF-8 text, replacing invalid and undefined bytes
+    #
+    # @param value [Object]
+    # @return [String]
+    def to_utf8(value)
+      text = value.to_s
+      return text if text.encoding == Encoding::UTF_8 && text.valid_encoding?
+      return text.dup.force_encoding(Encoding::UTF_8).scrub if text.encoding == Encoding::BINARY
+
+      text.encode(Encoding::UTF_8, invalid: :replace, undef: :replace)
+    rescue EncodingError
+      text.dup.force_encoding(Encoding::UTF_8).scrub
     end
 
     # Generates an 8-character checksum for the exception
@@ -132,7 +146,7 @@ module Errmine
     # @return [String]
     def generate_checksum(exception)
       first_app_line = first_app_backtrace_line(exception)
-      data = "#{config.app_name}:#{exception.class}:#{exception.message}:#{first_app_line}"
+      data = [config.app_name, exception.class, exception.message, first_app_line].map { |part| part.to_s.b }.join(':')
       Digest::MD5.hexdigest(data)[0, 8]
     end
 
@@ -292,7 +306,7 @@ module Errmine
     # @param exception [Exception]
     # @return [String]
     def build_subject(checksum, count, exception)
-      message = exception.message.to_s
+      message = to_utf8(exception.message)
       truncated = message.length > SUBJECT_MESSAGE_LENGTH ? "#{message[0, SUBJECT_MESSAGE_LENGTH]}..." : message
       truncated = truncated.gsub(/[\r\n]+/, ' ').strip
 
@@ -307,19 +321,19 @@ module Errmine
     def build_description(exception, context)
       lines = []
       lines << "**Exception:** @#{exception.class}@"
-      lines << "**Message:** #{exception.message}"
+      lines << "**Message:** #{to_utf8(exception.message)}"
       lines << "**App:** #{config.app_name}"
       lines << "**First seen:** #{Time.now.strftime('%Y-%m-%d %H:%M:%S')}"
       lines << ''
 
-      lines << "**URL:** #{context[:url]}" if context[:url]
+      lines << "**URL:** #{to_utf8(context[:url])}" if context[:url]
 
-      lines << "**User:** #{context[:user]}" if context[:user]
+      lines << "**User:** #{to_utf8(context[:user])}" if context[:user]
 
       context.each do |key, value|
         next if %i[url user].include?(key)
 
-        lines << "**#{key.to_s.capitalize}:** #{value}"
+        lines << "**#{to_utf8(key).capitalize}:** #{to_utf8(value)}"
       end
 
       lines << ''
@@ -343,8 +357,8 @@ module Errmine
       lines << "Occurred again (*#{count}x*) at #{Time.now.strftime('%Y-%m-%d %H:%M:%S')}"
       lines << ''
 
-      lines << "URL: #{context[:url]}" if context[:url]
-      lines << "User: #{context[:user]}" if context[:user]
+      lines << "URL: #{to_utf8(context[:url])}" if context[:url]
+      lines << "User: #{to_utf8(context[:user])}" if context[:user]
 
       lines << ''
       lines << '<pre>'
@@ -362,7 +376,7 @@ module Errmine
     def format_backtrace(exception, limit: 20)
       return 'No backtrace available' unless exception.backtrace
 
-      exception.backtrace.first(limit).join("\n")
+      exception.backtrace.first(limit).map { |line| to_utf8(line) }.join("\n")
     end
 
     # Extracts the occurrence count from issue subject
