@@ -2,18 +2,35 @@
 
 # Minimal stand-in for Rails, so the Railtie loads without a Rails app
 module Rails
-  def self.version = nil
-  def self.error = nil
+  class << self
+    def version
+      nil
+    end
+
+    def error
+      nil
+    end
+  end
 
   class Railtie
     Config = Struct.new(:after_initialize_blocks) do
-      def after_initialize(&block) = after_initialize_blocks << block
+      def after_initialize(&block)
+        after_initialize_blocks << block
+      end
     end
 
     class << self
-      def initializers = @initializers ||= []
-      def initializer(_name, &block) = initializers << block
-      def config = @config ||= Config.new([])
+      def initializers
+        @initializers ||= []
+      end
+
+      def initializer(_name, &block)
+        initializers << block
+      end
+
+      def config
+        @config ||= Config.new([])
+      end
     end
   end
 end

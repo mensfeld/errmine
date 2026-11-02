@@ -38,8 +38,7 @@ module Errmine
     # @return [Integer] Cooldown period in seconds between same-error notifications
     attr_accessor :cooldown
 
-    # @return [Array<String, Symbol, Regexp>] query parameter names whose values the middleware
-    #   replaces with [FILTERED] before it reports the URL (String/Symbol: case-insensitive partial match)
+    # @return [Array<String, Symbol, Regexp>] Query parameter names whose values the middleware filters
     attr_accessor :filter_parameters
 
     # Initializes configuration with defaults from environment variables

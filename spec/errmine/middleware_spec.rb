@@ -146,61 +146,67 @@ RSpec.describe Errmine::Middleware do
 
   describe 'query parameter filtering' do
     let(:middleware) { described_class.new(failing_app) }
-    let(:descriptions) { [] }
 
-    before do
-      stub_request(:get, %r{redmine\.example\.com/issues\.json})
-        .to_return(status: 200, body: '{"issues":[]}')
-      stub_request(:post, %r{redmine\.example\.com/issues\.json})
-        .to_return do |req|
-          descriptions << JSON.parse(req.body)['issue']['description']
-          { status: 201, body: '{"issue":{"id":1}}' }
-        end
-    end
+    before { stub_redmine_api }
 
     def report(uri)
       env = { 'REQUEST_METHOD' => 'GET', 'REQUEST_URI' => uri }
       expect { middleware.call(env) }.to raise_error(StandardError)
-      descriptions.last
+    end
+
+    def expect_reported(text)
+      expect(WebMock).to(have_requested(:post, %r{redmine\.example\.com/issues\.json})
+        .with { |req| req.body.include?(text) })
+    end
+
+    def expect_not_reported(text)
+      expect(WebMock).not_to(have_requested(:post, %r{redmine\.example\.com/issues\.json})
+        .with { |req| req.body.include?(text) })
     end
 
     it 'filters sensitive query parameter values with the default list' do
-      description = report('/password/edit?reset_password_token=S3CR3T&page=2&user%5Bpassword%5D=hunter2&api_key=K')
+      report('/password/edit?reset_password_token=S3CR3T&page=2&user%5Bpassword%5D=hunter2&api_key=K')
 
-      expect(description).not_to include('S3CR3T', 'hunter2', 'api_key=K')
-      expect(description).to include(
+      expect_reported(
         '**URL:** /password/edit?reset_password_token=[FILTERED]&page=2&' \
         'user%5Bpassword%5D=[FILTERED]&api_key=[FILTERED]'
       )
+      expect_not_reported('S3CR3T')
+      expect_not_reported('hunter2')
+      expect_not_reported('api_key=K')
     end
 
     it 'matches String and Symbol filters case-insensitively' do
       Errmine.configuration.filter_parameters = [:pin, 'Session']
-      description = report('/x?PIN=1234&user_session_id=abc&other=ok')
+      report('/x?PIN=1234&user_session_id=abc&other=ok')
 
-      expect(description).to include('**URL:** /x?PIN=[FILTERED]&user_session_id=[FILTERED]&other=ok')
+      expect_reported('**URL:** /x?PIN=[FILTERED]&user_session_id=[FILTERED]&other=ok')
     end
 
     it 'matches Regexp filters' do
       Errmine.configuration.filter_parameters = [/\Acode\z/]
-      description = report('/oauth/callback?code=ABC&state=xyz&zipcode=1')
+      report('/oauth/callback?code=ABC&state=xyz&zipcode=1')
 
-      expect(description).to include('**URL:** /oauth/callback?code=[FILTERED]&state=xyz&zipcode=1')
+      expect_reported('**URL:** /oauth/callback?code=[FILTERED]&state=xyz&zipcode=1')
     end
 
     it 'filters a sensitive key without a value' do
-      expect(report('/x?token&a=1')).to include('**URL:** /x?token=[FILTERED]&a=1')
+      report('/x?token&a=1')
+
+      expect_reported('**URL:** /x?token=[FILTERED]&a=1')
     end
 
     it 'filters the whole query when a key cannot be decoded' do
-      description = report('/x?%zztoken=SECRET&a=1')
+      report('/x?%zztoken=SECRET&a=1')
 
-      expect(description).to include('**URL:** /x?[FILTERED]')
-      expect(description).not_to include('SECRET')
+      expect_reported('**URL:** /x?[FILTERED]')
+      expect_not_reported('SECRET')
     end
 
     it 'keeps a URL without a query unchanged' do
-      expect(report('/users/1')).to include('**URL:** /users/1')
+      report('/users/1')
+
+      expect_reported('**URL:** /users/1')
     end
   end
 end
