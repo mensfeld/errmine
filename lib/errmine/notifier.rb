@@ -132,9 +132,12 @@ module Errmine
     # @return [String]
     def to_utf8(value)
       text = value.to_s
+      return text if text.encoding == Encoding::UTF_8 && text.valid_encoding?
       return text.dup.force_encoding(Encoding::UTF_8).scrub if text.encoding == Encoding::BINARY
 
       text.encode(Encoding::UTF_8, invalid: :replace, undef: :replace).scrub
+    rescue EncodingError
+      text.dup.force_encoding(Encoding::UTF_8).scrub
     end
 
     # Generates an 8-character checksum for the exception
@@ -143,7 +146,7 @@ module Errmine
     # @return [String]
     def generate_checksum(exception)
       first_app_line = first_app_backtrace_line(exception)
-      data = "#{config.app_name}:#{exception.class}:#{to_utf8(exception.message)}:#{to_utf8(first_app_line)}"
+      data = [config.app_name, exception.class, exception.message, first_app_line].map { |part| part.to_s.b }.join(':')
       Digest::MD5.hexdigest(data)[0, 8]
     end
 
