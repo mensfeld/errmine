@@ -6,6 +6,7 @@
 - [Fix] Fix cache cleanup crashing with `NoMethodError` when the cache exceeds 500 entries within one cooldown, which dropped every new error until entries expired.
 - [Fix] Report the next occurrence of an error whose report to Redmine failed (HTTP error, timeout, connection error) after 60 seconds (or the cooldown, if shorter) instead of dropping it for the whole cooldown, and log one warning with the error class and the failure.
 - [Fix] Report errors whose message, backtrace or context has invalid UTF-8 or binary bytes, and `Errmine.create_issue` subjects or descriptions with such bytes, with those bytes replaced, instead of failing to build the Redmine request and never reporting them.
+- [Fix] Replace the values of sensitive query parameters in the URL that `Errmine::Middleware` reports with `[FILTERED]`, instead of sending them to Redmine in clear text. Add the `filter_parameters` option (default: the Rails 7.1 list `passw email secret token _key crypt salt certificate otp ssn cvv cvc`); in Rails, the app's `config.filter_parameters` is added to it.
 
 ## 0.2.0 (2025-12-24)
 - [Feature] Add app name to issue title for easy identification when multiple apps report to the same Redmine project.

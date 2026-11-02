@@ -109,6 +109,7 @@ end
 | `default_tags` | `[]` | Tags (array of strings) added to every issue Errmine creates |
 | `enabled` | `true` | Enable/disable notifications and custom issues |
 | `cooldown` | `300` | Seconds between same-error notifications (after a failed report, the next occurrence is reported after 60 seconds, or after the cooldown if it is shorter) |
+| `filter_parameters` | `%w[passw email secret token _key crypt salt certificate otp ssn cvv cvc]` | Query parameter names whose values the middleware replaces with `[FILTERED]`. Strings and symbols match any part of the name, case-insensitively; regexps match with `match?`. In Rails, the app's `config.filter_parameters` (strings, symbols, regexps; procs are skipped) is added after initialization |
 
 ## Usage
 
@@ -132,7 +133,7 @@ use Errmine::Middleware
 
 Outside Rails, `require 'errmine'` does not load `Errmine::Middleware`. Require `errmine/middleware` before you use it. In Rails, the Railtie loads it.
 
-The middleware captures request context (URL, HTTP method, user via Warden).
+The middleware captures request context (URL, HTTP method, user via Warden). The URL includes the query string, with the value of each parameter that matches `filter_parameters` replaced with `[FILTERED]` (for example `/password/edit?reset_password_token=[FILTERED]&page=2`). If a parameter name cannot be decoded, the whole query is replaced: `/path?[FILTERED]`.
 
 ### Manual Notification
 
@@ -143,7 +144,7 @@ begin
   risky_operation
 rescue => e
   Errmine.notify(e, {
-    url: request.url,
+    url: request.filtered_path,
     user: current_user&.email,
     tags: ['checkout'],
     custom_field: 'any value'
@@ -152,6 +153,7 @@ rescue => e
 end
 ```
 
+- Errmine does not filter a `url` you pass. In Rails, `request.filtered_path` gives the path and query with `config.filter_parameters` applied; `request.url` holds every query value in clear text
 - When set, `url` and `user` add the `**URL:**` and `**User:**` lines to the issue description. Every other key adds one `**Key:** value` line, with the key name capitalized and the value as Ruby text, for example `**Custom_field:** any value`
 - `tags` is optional, an array of strings. When the report creates a new issue, the issue gets `default_tags` plus these tags, without duplicates
 - The issue description also gets a `**Tags:**` line with these tags as a Ruby array, for example `**Tags:** ["checkout"]` (without `default_tags`)
@@ -163,7 +165,7 @@ end
 class ApplicationController < ActionController::Base
   rescue_from StandardError do |e|
     Errmine.notify(e, {
-      url: request.url,
+      url: request.filtered_path,
       user: current_user&.email
     })
     raise e
