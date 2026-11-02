@@ -135,7 +135,7 @@ module Errmine
       return text if text.encoding == Encoding::UTF_8 && text.valid_encoding?
       return text.dup.force_encoding(Encoding::UTF_8).scrub if text.encoding == Encoding::BINARY
 
-      text.encode(Encoding::UTF_8, invalid: :replace, undef: :replace).scrub
+      text.encode(Encoding::UTF_8, invalid: :replace, undef: :replace)
     rescue EncodingError
       text.dup.force_encoding(Encoding::UTF_8).scrub
     end

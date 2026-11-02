@@ -427,27 +427,28 @@ RSpec.describe Errmine::Notifier do
   describe 'text encoding' do
     before { stub_redmine_api }
 
-    def created_issue
-      issue = nil
-      expect(WebMock).to(have_requested(:post, %r{redmine\.example\.com/issues\.json})
-        .with { |req| issue = JSON.parse(req.body)['issue'] })
-      issue
-    end
-
     it 'reports a message with invalid UTF-8 scrubbed' do
       exception = sample_exception("bad byte \xFF in input".dup.force_encoding(Encoding::UTF_8))
 
       expect(notifier.notify(exception)).to eq('id' => 1)
-      expect(created_issue['subject']).to end_with("StandardError: bad byte \uFFFD in input")
-      expect(created_issue['description']).to include("**Message:** bad byte \uFFFD in input")
+      expect(WebMock).to(have_requested(:post, %r{redmine\.example\.com/issues\.json})
+        .with do |req|
+          issue = JSON.parse(req.body)['issue']
+          issue['subject'].end_with?("StandardError: bad byte \uFFFD in input") &&
+            issue['description'].include?("**Message:** bad byte \uFFFD in input")
+        end)
     end
 
     it 'reports an ASCII-8BIT message with high bytes scrubbed' do
       exception = sample_exception("zażółć \xFF".b)
 
       expect(notifier.notify(exception)).to eq('id' => 1)
-      expect(created_issue['subject']).to end_with("StandardError: zażółć \uFFFD")
-      expect(created_issue['description']).to include("**Message:** zażółć \uFFFD")
+      expect(WebMock).to(have_requested(:post, %r{redmine\.example\.com/issues\.json})
+        .with do |req|
+          issue = JSON.parse(req.body)['issue']
+          issue['subject'].end_with?("StandardError: zażółć \uFFFD") &&
+            issue['description'].include?("**Message:** zażółć \uFFFD")
+        end)
     end
 
     it 'reports when a context value has invalid UTF-8' do
@@ -455,8 +456,12 @@ RSpec.describe Errmine::Notifier do
       exception = sample_exception
 
       expect(notifier.notify(exception, { url: bad, user: bad, request_id: bad, bad => 1 })).to eq('id' => 1)
-      expect(created_issue['description'])
-        .to include("**URL:** bad \uFFFD", "**User:** bad \uFFFD", "**Request_id:** bad \uFFFD", "**Bad \uFFFD:** 1")
+      expect(WebMock).to(have_requested(:post, %r{redmine\.example\.com/issues\.json})
+        .with do |req|
+          issue = JSON.parse(req.body)['issue']
+          ["**URL:** bad \uFFFD", "**User:** bad \uFFFD", "**Request_id:** bad \uFFFD", "**Bad \uFFFD:** 1"]
+            .all? { |line| issue['description'].include?(line) }
+        end)
     end
 
     it 'updates an existing issue for a message with invalid UTF-8' do
@@ -482,7 +487,11 @@ RSpec.describe Errmine::Notifier do
       exception.set_backtrace(["/app/bad\xFF.rb:1:in 'call'".dup.force_encoding(Encoding::UTF_8)])
 
       expect(notifier.notify(exception)).to eq('id' => 1)
-      expect(created_issue['description']).to include("/app/bad\uFFFD.rb:1:in 'call'")
+      expect(WebMock).to(have_requested(:post, %r{redmine\.example\.com/issues\.json})
+        .with do |req|
+          issue = JSON.parse(req.body)['issue']
+          issue['description'].include?("/app/bad\uFFFD.rb:1:in 'call'")
+        end)
     end
 
     it 'reports an ASCII-8BIT message raised from a non-ASCII backtrace path' do
@@ -490,27 +499,43 @@ RSpec.describe Errmine::Notifier do
       exception.set_backtrace(["/app/zażółć.rb:1:in 'call'"])
 
       expect(notifier.notify(exception)).to eq('id' => 1)
-      expect(created_issue['description']).to include('/app/zażółć.rb')
+      expect(WebMock).to(have_requested(:post, %r{redmine\.example\.com/issues\.json})
+        .with do |req|
+          issue = JSON.parse(req.body)['issue']
+          issue['description'].include?('/app/zażółć.rb')
+        end)
     end
 
     it 'reports a message in an encoding with no UTF-8 converter' do
       exception = sample_exception('plain text'.dup.force_encoding(Encoding::UTF_7))
 
       expect(notifier.notify(exception)).to eq('id' => 1)
-      expect(created_issue['subject']).to end_with('StandardError: plain text')
+      expect(WebMock).to(have_requested(:post, %r{redmine\.example\.com/issues\.json})
+        .with do |req|
+          issue = JSON.parse(req.body)['issue']
+          issue['subject'].end_with?('StandardError: plain text')
+        end)
     end
 
     it 'sends tags with invalid UTF-8 scrubbed' do
       notifier.notify(sample_exception, { tags: ["bad\xFF".dup.force_encoding(Encoding::UTF_8)] })
 
-      expect(created_issue['tag_list']).to eq(["bad\uFFFD"])
+      expect(WebMock).to(have_requested(:post, %r{redmine\.example\.com/issues\.json})
+        .with do |req|
+          issue = JSON.parse(req.body)['issue']
+          issue['tag_list'] == ["bad\uFFFD"]
+        end)
     end
 
     it 'creates a custom issue whose subject and description have invalid UTF-8' do
       bad = "\xFF".dup.force_encoding(Encoding::UTF_8)
 
       expect(notifier.create_custom_issue(subject: "s#{bad}", description: "d#{bad}".b)).to eq('id' => 1)
-      expect(created_issue.slice('subject', 'description')).to eq('subject' => "s\uFFFD", 'description' => "d\uFFFD")
+      expect(WebMock).to(have_requested(:post, %r{redmine\.example\.com/issues\.json})
+        .with do |req|
+          issue = JSON.parse(req.body)['issue']
+          issue['subject'] == "s\uFFFD" && issue['description'] == "d\uFFFD"
+        end)
     end
 
     it 'keeps the checksum of a valid ISO-8859-1 message' do
@@ -519,7 +544,11 @@ RSpec.describe Errmine::Notifier do
 
       notifier.notify(exception)
 
-      expect(created_issue['subject']).to eq("[test-app][#{checksum}][1] StandardError: café")
+      expect(WebMock).to(have_requested(:post, %r{redmine\.example\.com/issues\.json})
+        .with do |req|
+          issue = JSON.parse(req.body)['issue']
+          issue['subject'] == "[test-app][#{checksum}][1] StandardError: café"
+        end)
     end
 
     it 'keeps a valid non-ASCII message and its checksum unchanged' do
@@ -529,8 +558,12 @@ RSpec.describe Errmine::Notifier do
 
       notifier.notify(exception)
 
-      expect(created_issue['subject']).to eq("[test-app][#{checksum}][1] StandardError: #{message}")
-      expect(created_issue['description']).to include("**Message:** #{message}")
+      expect(WebMock).to(have_requested(:post, %r{redmine\.example\.com/issues\.json})
+        .with do |req|
+          issue = JSON.parse(req.body)['issue']
+          issue['subject'] == "[test-app][#{checksum}][1] StandardError: #{message}" &&
+            issue['description'].include?("**Message:** #{message}")
+        end)
     end
   end
 
