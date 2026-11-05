@@ -12,7 +12,7 @@
 - [Feature] Add app name to issue title for easy identification when multiple apps report to the same Redmine project.
 - [Feature] Include app_name in checksum calculation so same errors in different apps create separate issues.
 - [Feature] Add `Errmine.create_issue` method for creating custom Redmine issues with arbitrary subject, description, tracker, project, and tags.
-- [Feature] Add tags support via `tag_list` parameter for both exception reporting and custom issues.
+- [Feature] Add tags support via the `tags` option for both exception reporting and custom issues.
 - [Feature] Add `default_tags` configuration option for tags applied to all issues.
 - [Maintenance] Update actions/checkout to v6 in CI.
 
