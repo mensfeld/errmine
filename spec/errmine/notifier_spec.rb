@@ -1018,5 +1018,24 @@ RSpec.describe Errmine::Notifier do
       expect(WebMock).to(have_requested(:post, %r{redmine\.example\.com/issues\.json})
         .with { |req| !JSON.parse(req.body)['issue'].key?('assigned_to_id') })
     end
+
+    it 'does not change the assignee when updating an existing issue' do
+      Errmine.configuration.assigned_to_id = 3
+
+      stub_request(:get, %r{redmine\.example\.com/issues\.json})
+        .to_return(status: 200, body: { 'issues' => [{ 'id' => 456,
+                                                       'subject' => '[abcd1234][5] StandardError: Test' }] }.to_json)
+
+      stub_request(:put, %r{redmine\.example\.com/issues/456\.json})
+        .to_return(status: 200, body: '{}')
+
+      allow(notifier).to receive(:generate_checksum).and_return('abcd1234')
+
+      notifier.notify(sample_exception('Test'), { assigned_to_id: 7 })
+
+      expect(WebMock).to(have_requested(:put, %r{redmine\.example\.com/issues/456\.json})
+        .with { |req| !JSON.parse(req.body)['issue'].key?('assigned_to_id') })
+      expect(WebMock).not_to have_requested(:post, %r{redmine\.example\.com/issues\.json})
+    end
   end
 end
