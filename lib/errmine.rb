@@ -52,9 +52,9 @@ module Errmine
       @tracker_id   = 1
       @app_name     = ENV['ERRMINE_APP_NAME'] || 'unknown'
       @default_tags = []
-      @assigned_to_id = nil
       @enabled      = true
       @cooldown     = 300
+      @assigned_to_id = nil
       @filter_parameters = %w[passw email secret token _key crypt salt certificate otp ssn cvv cvc]
     end
 
