@@ -1,7 +1,8 @@
 # Errmine changelog
 
-## Unreleased
+## 0.3.0 (Unreleased)
 - [Breaking] Require Ruby `>= 4.0.0`. Errmine 0.2.0 and earlier required Ruby `>= 3.3.0`.
+- [Feature] Add the `assigned_to_id` option to `Errmine.create_issue` and `Errmine.notify` (in the context), and the `assigned_to_id` setting (default `nil`) as its default, to assign new issues to a Redmine user. Without either, Errmine sends no assignee and Redmine uses the project's default, as before.
 - [Enhancement] Add Ruby warning category opt-in to test helpers.
 - [Fix] Fix cache cleanup crashing with `NoMethodError` when the cache exceeds 500 entries within one cooldown, which dropped every new error until entries expired.
 - [Fix] Report the next occurrence of an error whose report to Redmine failed (HTTP error, timeout, connection error) after 60 seconds (or the cooldown, if shorter) instead of dropping it for the whole cooldown, and log one warning with the error class and the failure.

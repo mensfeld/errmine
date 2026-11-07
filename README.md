@@ -107,6 +107,7 @@ end
 | `tracker_id` | `1` | Tracker ID (usually 1 = Bug) |
 | `app_name` | `ENV['ERRMINE_APP_NAME']` or `'unknown'` | Application name shown in issues |
 | `default_tags` | `[]` | Tags (array of strings) added to every issue Errmine creates |
+| `assigned_to_id` | `nil` | Redmine user ID that new issues are assigned to. When `nil`, Errmine sends no assignee and Redmine uses the project's default |
 | `enabled` | `true` | Enable/disable notifications and custom issues |
 | `cooldown` | `300` | Seconds between same-error notifications (after a failed report, the next occurrence is reported after 60 seconds, or after the cooldown if it is shorter) |
 | `filter_parameters` | `%w[passw email secret token _key crypt salt certificate otp ssn cvv cvc]` | Query parameter names whose values the middleware replaces with `[FILTERED]`. Strings and symbols match any part of the name, case-insensitively; regexps match with `match?`. In Rails, the app's `config.filter_parameters` (strings, symbols, regexps; procs are skipped) is added after initialization |
@@ -158,6 +159,7 @@ end
 - `tags` is optional, an array of strings. When the report creates a new issue, the issue gets `default_tags` plus these tags, without duplicates
 - The issue description also gets a `**Tags:**` line with these tags as a Ruby array, for example `**Tags:** ["checkout"]` (without `default_tags`)
 - When a report that passes the cooldown finds an open issue for the error, it updates that issue and ignores `tags`: Errmine adds no tags to the issue and no tags line to the journal note
+- `assigned_to_id` is optional, a Redmine user ID. When the report creates a new issue, the issue is assigned to this user instead of the configured `assigned_to_id`. It also adds an `**Assigned_to_id:**` line to the description. Updates of an open issue do not change its assignee
 
 ### rescue_from in Controllers
 
@@ -186,7 +188,7 @@ Errmine.create_issue(
 ```
 
 - `subject` and `description` are required; the description uses Textile format
-- `project_id` and `tracker_id` are optional and default to the configured values
+- `project_id`, `tracker_id` and `assigned_to_id` are optional and default to the configured values. Without any `assigned_to_id`, Redmine assigns the project's default assignee
 - `tags` is optional; the issue gets `default_tags` plus these tags, without duplicates
 - When `enabled` is `false`, it creates no issue and returns `nil`
 - Otherwise each call creates a new issue with one HTTP request, in the calling thread: no checksum, no deduplication, no cooldown

@@ -32,6 +32,9 @@ module Errmine
     # @return [Array<String>] Default tags to add to all issues
     attr_accessor :default_tags
 
+    # @return [Integer, nil] Redmine user ID new issues are assigned to (nil: project default)
+    attr_accessor :assigned_to_id
+
     # @return [Boolean] Whether notifications are enabled
     attr_accessor :enabled
 
@@ -51,6 +54,7 @@ module Errmine
       @default_tags = []
       @enabled      = true
       @cooldown     = 300
+      @assigned_to_id = nil
       @filter_parameters = %w[passw email secret token _key crypt salt certificate otp ssn cvv cvc]
     end
 
@@ -110,6 +114,7 @@ module Errmine
     # @option options [String] :project_id Redmine project identifier
     # @option options [Integer] :tracker_id Redmine tracker ID
     # @option options [Array<String>] :tags tags to add to the issue
+    # @option options [Integer] :assigned_to_id Redmine user ID to assign the issue to
     # @return [Hash, nil] the created issue or nil on failure
     def create_issue(subject:, description:, **options)
       return unless configuration.enabled
