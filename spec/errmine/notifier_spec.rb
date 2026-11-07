@@ -906,6 +906,45 @@ RSpec.describe Errmine::Notifier do
           end)
       end
     end
+
+    context 'with assigned_to_id' do
+      before do
+        stub_request(:post, %r{redmine\.example\.com/issues\.json})
+          .to_return(status: 201, body: '{"issue":{"id":1}}')
+      end
+
+      it 'sends assigned_to_id when provided' do
+        notifier.create_custom_issue(subject: 'Test', description: 'Test', assigned_to_id: 7)
+
+        expect(WebMock).to(have_requested(:post, %r{redmine\.example\.com/issues\.json})
+          .with { |req| JSON.parse(req.body)['issue']['assigned_to_id'] == 7 })
+      end
+
+      it 'uses the configured assigned_to_id when not provided' do
+        Errmine.configuration.assigned_to_id = 3
+
+        notifier.create_custom_issue(subject: 'Test', description: 'Test')
+
+        expect(WebMock).to(have_requested(:post, %r{redmine\.example\.com/issues\.json})
+          .with { |req| JSON.parse(req.body)['issue']['assigned_to_id'] == 3 })
+      end
+
+      it 'prefers the provided assigned_to_id over the configured one' do
+        Errmine.configuration.assigned_to_id = 3
+
+        notifier.create_custom_issue(subject: 'Test', description: 'Test', assigned_to_id: 7)
+
+        expect(WebMock).to(have_requested(:post, %r{redmine\.example\.com/issues\.json})
+          .with { |req| JSON.parse(req.body)['issue']['assigned_to_id'] == 7 })
+      end
+
+      it 'does not include assigned_to_id when neither is set' do
+        notifier.create_custom_issue(subject: 'Test', description: 'Test')
+
+        expect(WebMock).to(have_requested(:post, %r{redmine\.example\.com/issues\.json})
+          .with { |req| !JSON.parse(req.body)['issue'].key?('assigned_to_id') })
+      end
+    end
   end
 
   describe '#notify with tags' do
@@ -943,6 +982,41 @@ RSpec.describe Errmine::Notifier do
           body = JSON.parse(req.body)
           body['issue']['tag_list'] == ['error-tracking']
         end)
+    end
+  end
+
+  describe '#notify with assigned_to_id' do
+    before do
+      stub_request(:get, %r{redmine\.example\.com/issues\.json})
+        .to_return(status: 200, body: '{"issues":[]}')
+
+      stub_request(:post, %r{redmine\.example\.com/issues\.json})
+        .to_return(status: 201, body: '{"issue":{"id":1}}')
+    end
+
+    it 'sends the configured assigned_to_id when creating new issue' do
+      Errmine.configuration.assigned_to_id = 3
+
+      notifier.notify(sample_exception)
+
+      expect(WebMock).to(have_requested(:post, %r{redmine\.example\.com/issues\.json})
+        .with { |req| JSON.parse(req.body)['issue']['assigned_to_id'] == 3 })
+    end
+
+    it 'prefers assigned_to_id from context over the configured one' do
+      Errmine.configuration.assigned_to_id = 3
+
+      notifier.notify(sample_exception, { assigned_to_id: 7 })
+
+      expect(WebMock).to(have_requested(:post, %r{redmine\.example\.com/issues\.json})
+        .with { |req| JSON.parse(req.body)['issue']['assigned_to_id'] == 7 })
+    end
+
+    it 'does not include assigned_to_id when neither is set' do
+      notifier.notify(sample_exception)
+
+      expect(WebMock).to(have_requested(:post, %r{redmine\.example\.com/issues\.json})
+        .with { |req| !JSON.parse(req.body)['issue'].key?('assigned_to_id') })
     end
   end
 end

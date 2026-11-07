@@ -142,13 +142,15 @@ RSpec.describe Errmine do
           subject: 'Test',
           description: 'Test',
           tracker_id: 5,
-          project_id: 'other'
+          project_id: 'other',
+          assigned_to_id: 7
         )
 
         expect(WebMock).to(have_requested(:post, /redmine\.example\.com/)
           .with do |req|
             body = JSON.parse(req.body)
-            body['issue']['tracker_id'] == 5 && body['issue']['project_id'] == 'other'
+            body['issue']['tracker_id'] == 5 && body['issue']['project_id'] == 'other' &&
+              body['issue']['assigned_to_id'] == 7
           end)
       end
     end
@@ -202,6 +204,7 @@ RSpec.describe Errmine do
           expect(config.tracker_id).to eq(1)
           expect(config.app_name).to eq('unknown')
           expect(config.default_tags).to eq([])
+          expect(config.assigned_to_id).to be_nil
           expect(config.enabled).to be(true)
           expect(config.cooldown).to eq(300)
         end

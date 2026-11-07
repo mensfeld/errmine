@@ -81,6 +81,7 @@ module Errmine
     # @option options [String] :project_id Redmine project identifier
     # @option options [Integer] :tracker_id Redmine tracker ID
     # @option options [Array<String>] :tags tags to add to the issue
+    # @option options [Integer] :assigned_to_id Redmine user ID to assign the issue to
     # @return [Hash, nil] the created issue or nil on failure
     def create_custom_issue(subject:, description:, **options)
       uri = build_uri('/issues.json')
@@ -94,6 +95,9 @@ module Errmine
 
       tags = build_tag_list(options[:tags])
       issue_data[:tag_list] = tags unless tags.empty?
+
+      assigned_to_id = options[:assigned_to_id] || config.assigned_to_id
+      issue_data[:assigned_to_id] = assigned_to_id if assigned_to_id
 
       response = http_post(uri, { issue: issue_data })
 
@@ -260,6 +264,9 @@ module Errmine
 
       tags = build_tag_list(context[:tags])
       issue_data[:tag_list] = tags unless tags.empty?
+
+      assigned_to_id = context[:assigned_to_id] || config.assigned_to_id
+      issue_data[:assigned_to_id] = assigned_to_id if assigned_to_id
 
       response = http_post(uri, { issue: issue_data })
 
