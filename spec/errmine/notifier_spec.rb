@@ -82,6 +82,54 @@ RSpec.describe Errmine::Notifier do
           .with { |req| req.body.include?('[6]') })
       end
 
+      it 'increments the count in a subject with the app name' do
+        issues = [{ 'id' => 456, 'subject' => '[test-app][abcd1234][5] StandardError: Test' }]
+        stub_request(:get, %r{redmine\.example\.com/issues\.json})
+          .to_return(status: 200, body: { 'issues' => issues }.to_json)
+
+        stub_request(:put, %r{redmine\.example\.com/issues/456\.json})
+          .to_return(status: 200, body: '{}')
+
+        allow(notifier).to receive(:generate_checksum).and_return('abcd1234')
+
+        notifier.notify(sample_exception('Test'))
+
+        expect(WebMock).to(have_requested(:put, %r{redmine\.example\.com/issues/456\.json})
+          .with { |req| JSON.parse(req.body)['issue']['subject'].start_with?('[test-app][abcd1234][6] ') })
+      end
+
+      it 'reads the count after an all-digit checksum' do
+        issues = [{ 'id' => 456, 'subject' => '[test-app][12345678][3] StandardError: Test' }]
+        stub_request(:get, %r{redmine\.example\.com/issues\.json})
+          .to_return(status: 200, body: { 'issues' => issues }.to_json)
+
+        stub_request(:put, %r{redmine\.example\.com/issues/456\.json})
+          .to_return(status: 200, body: '{}')
+
+        allow(notifier).to receive(:generate_checksum).and_return('12345678')
+
+        notifier.notify(sample_exception('Test'))
+
+        expect(WebMock).to(have_requested(:put, %r{redmine\.example\.com/issues/456\.json})
+          .with { |req| JSON.parse(req.body)['issue']['subject'].start_with?('[test-app][12345678][4] ') })
+      end
+
+      it 'keeps the checksum when the subject starts with an 8-hex app name' do
+        issues = [{ 'id' => 456, 'subject' => '[deadbeef][abcdef01][2] StandardError: Test' }]
+        stub_request(:get, %r{redmine\.example\.com/issues\.json})
+          .to_return(status: 200, body: { 'issues' => issues }.to_json)
+
+        stub_request(:put, %r{redmine\.example\.com/issues/456\.json})
+          .to_return(status: 200, body: '{}')
+
+        allow(notifier).to receive(:generate_checksum).and_return('abcdef01')
+
+        notifier.notify(sample_exception('Test'))
+
+        expect(WebMock).to(have_requested(:put, %r{redmine\.example\.com/issues/456\.json})
+          .with { |req| JSON.parse(req.body)['issue']['subject'].start_with?('[test-app][abcdef01][3] ') })
+      end
+
       it 'adds a journal note' do
         stub_request(:get, %r{redmine\.example\.com/issues\.json})
           .to_return(status: 200, body: { 'issues' => [{ 'id' => 456,

@@ -58,7 +58,7 @@ module Errmine
       when nil
         create_issue(exception, context, checksum)
       else
-        update_issue(result, exception, context)
+        update_issue(result, exception, context, checksum)
       end
     rescue RequestError => e
       retry_delay = schedule_retry(checksum)
@@ -282,14 +282,13 @@ module Errmine
     # @param issue [Hash]
     # @param exception [Exception]
     # @param context [Hash]
+    # @param checksum [String]
     # @return [Net::HTTPResponse]
     # @raise [RequestError] when the request fails
-    def update_issue(issue, exception, context)
+    def update_issue(issue, exception, context, checksum)
       issue_id = issue['id']
-      current_subject = issue['subject']
 
-      new_count = extract_count(current_subject) + 1
-      checksum = extract_checksum(current_subject)
+      new_count = extract_count(issue['subject'], checksum) + 1
 
       new_subject = build_subject(checksum, new_count, exception)
       notes = build_journal_note(new_count, context, exception)
@@ -386,22 +385,14 @@ module Errmine
       exception.backtrace.first(limit).map { |line| to_utf8(line) }.join("\n")
     end
 
-    # Extracts the occurrence count from issue subject
+    # Extracts the occurrence count that follows the checksum in an issue subject
     #
     # @param subject [String, nil]
+    # @param checksum [String]
     # @return [Integer]
-    def extract_count(subject)
-      match = subject&.match(/\]\[(\d+)\]/)
+    def extract_count(subject, checksum)
+      match = subject&.match(/\[#{checksum}\]\[(\d+)\]/)
       match ? match[1].to_i : 0
-    end
-
-    # Extracts the checksum from issue subject
-    #
-    # @param subject [String, nil]
-    # @return [String]
-    def extract_checksum(subject)
-      match = subject&.match(/\[([a-f0-9]{8})\]/)
-      match ? match[1] : ''
     end
 
     # Builds a URI for the Redmine API
