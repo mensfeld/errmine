@@ -43,6 +43,8 @@ module Errmine
 
         private
 
+        # Extracts Redmine's validation errors from a response body
+        #
         # @param response [Net::HTTPResponse]
         # @return [Array<String>] empty when the body has no errors list
         def response_errors(response)
