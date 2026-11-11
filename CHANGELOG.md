@@ -1,6 +1,7 @@
 # Errmine changelog
 
 ## 0.3.1 (Unreleased)
+- [Fix] Include Redmine's validation errors in the warning for a failed request (e.g. `HTTP 422: Unprocessable Entity - Assignee is invalid` for an invalid `assigned_to_id`), instead of only the HTTP status.
 - [Fix] Read the occurrence count that follows the error's checksum in the issue subject, and keep that checksum, instead of the first bracket group that looks like one. An all-digit checksum (e.g. `[my-app][12345678][3]`) was read as the count, and an `app_name` of 8 hex characters (e.g. `deadbeef`) as the checksum.
 
 ## 0.3.0 (2026-11-10)
