@@ -852,6 +852,27 @@ RSpec.describe Errmine::Notifier do
       expect(notifier).to have_received(:warn).once.with('[Errmine] HTTP 404: Not Found')
     end
 
+    it 'warns without errors when the JSON body is not an object' do
+      allow(notifier).to receive(:warn)
+      stub_request(:post, %r{redmine\.example\.com/issues\.json})
+        .to_return(status: [422, 'Unprocessable Entity'], body: '["Assignee is invalid"]')
+
+      notifier.create_custom_issue(subject: 'Test', description: 'Test')
+
+      expect(notifier).to have_received(:warn).once.with('[Errmine] HTTP 422: Unprocessable Entity')
+    end
+
+    it 'skips empty errors in the warning' do
+      allow(notifier).to receive(:warn)
+      stub_request(:post, %r{redmine\.example\.com/issues\.json})
+        .to_return(status: [422, 'Unprocessable Entity'], body: '{"errors":["","Assignee is invalid"]}')
+
+      notifier.create_custom_issue(subject: 'Test', description: 'Test')
+
+      expect(notifier).to have_received(:warn)
+        .once.with('[Errmine] HTTP 422: Unprocessable Entity - Assignee is invalid')
+    end
+
     it 'returns nil on invalid JSON response' do
       stub_request(:post, %r{redmine\.example\.com/issues\.json})
         .to_return(status: 201, body: 'not json')

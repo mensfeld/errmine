@@ -29,29 +29,31 @@ module Errmine
 
     # Raised internally when a Redmine request fails
     class RequestError < StandardError
-      # Builds the error for a failed response, with Redmine's errors (`{"errors": [...]}`) when present
-      #
-      # @param response [Net::HTTPResponse]
-      # @return [RequestError]
-      def self.from_response(response)
-        message = "HTTP #{response.code}: #{response.message}"
-        errors = response_errors(response)
+      class << self
+        # Builds the error for a failed response, with Redmine's errors (`{"errors": [...]}`) when present
+        #
+        # @param response [Net::HTTPResponse]
+        # @return [RequestError]
+        def from_response(response)
+          message = "HTTP #{response.code}: #{response.message}"
+          errors = response_errors(response)
 
-        new(errors.empty? ? message : "#{message.rstrip} - #{errors.join(', ')}")
+          new(errors.empty? ? message : "#{message.rstrip} - #{errors.join(', ')}")
+        end
+
+        private
+
+        # @param response [Net::HTTPResponse]
+        # @return [Array<String>] empty when the body has no errors list
+        def response_errors(response)
+          data = JSON.parse(response.body.to_s)
+          errors = data['errors'] if data.is_a?(Hash)
+
+          errors.is_a?(Array) ? errors.map(&:to_s).reject(&:empty?) : []
+        rescue JSON::ParserError
+          []
+        end
       end
-
-      # @param response [Net::HTTPResponse]
-      # @return [Array<String>] empty when the body has no errors list
-      def self.response_errors(response)
-        data = JSON.parse(response.body.to_s)
-        errors = data['errors'] if data.is_a?(Hash)
-
-        errors.is_a?(Array) ? errors.map(&:to_s).reject(&:empty?) : []
-      rescue JSON::ParserError
-        []
-      end
-
-      private_class_method :response_errors
     end
 
     private_constant :FAILED_REPORT_RETRY_DELAY, :RequestError
