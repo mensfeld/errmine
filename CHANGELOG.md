@@ -1,5 +1,8 @@
 # Errmine changelog
 
+## 0.3.1 (Unreleased)
+- [Fix] Include Redmine's validation errors in the warning for a failed request (e.g. `HTTP 422: Unprocessable Entity - Assignee is invalid` for an invalid `assigned_to_id`), instead of only the HTTP status.
+
 ## 0.3.0 (2026-11-10)
 - [Breaking] Require Ruby `>= 4.0.0`. Errmine 0.2.0 and earlier required Ruby `>= 3.3.0`.
 - [Feature] Add the `assigned_to_id` option to `Errmine.create_issue` and `Errmine.notify` (in the context), and the `assigned_to_id` setting (default `nil`) as its default, to assign new issues to a Redmine user. Without either, Errmine sends no assignee and Redmine uses the project's default, as before.

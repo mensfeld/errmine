@@ -796,6 +796,62 @@ RSpec.describe Errmine::Notifier do
       expect(notifier).to have_received(:warn).once.with('[Errmine] HTTP 500: Internal Server Error')
     end
 
+    it "warns with Redmine's errors on a 422 for an invalid assignee" do
+      allow(notifier).to receive(:warn)
+      stub_request(:post, %r{redmine\.example\.com/issues\.json})
+        .to_return(status: [422, 'Unprocessable Entity'], body: '{"errors":["Assignee is invalid"]}')
+
+      result = notifier.create_custom_issue(subject: 'Test', description: 'Test', assigned_to_id: 999)
+
+      expect(result).to be_nil
+      expect(notifier).to have_received(:warn)
+        .once.with('[Errmine] HTTP 422: Unprocessable Entity - Assignee is invalid')
+    end
+
+    it "warns with all of Redmine's errors on a 422 for an invalid tracker" do
+      allow(notifier).to receive(:warn)
+      stub_request(:post, %r{redmine\.example\.com/issues\.json})
+        .to_return(
+          status: [422, ''],
+          body: '{"errors":["Tracker cannot be blank","Tracker is not included in the list"]}'
+        )
+
+      notifier.create_custom_issue(subject: 'Test', description: 'Test', tracker_id: 999)
+
+      expect(notifier).to have_received(:warn)
+        .once.with('[Errmine] HTTP 422: - Tracker cannot be blank, Tracker is not included in the list')
+    end
+
+    it 'warns without the body when an error response is not JSON' do
+      allow(notifier).to receive(:warn)
+      stub_request(:post, %r{redmine\.example\.com/issues\.json})
+        .to_return(status: [502, 'Bad Gateway'], body: '<html>Bad Gateway</html>')
+
+      notifier.create_custom_issue(subject: 'Test', description: 'Test')
+
+      expect(notifier).to have_received(:warn).once.with('[Errmine] HTTP 502: Bad Gateway')
+    end
+
+    it 'warns without errors when an error response body is empty' do
+      allow(notifier).to receive(:warn)
+      stub_request(:post, %r{redmine\.example\.com/issues\.json})
+        .to_return(status: [422, 'Unprocessable Entity'], body: '')
+
+      notifier.create_custom_issue(subject: 'Test', description: 'Test')
+
+      expect(notifier).to have_received(:warn).once.with('[Errmine] HTTP 422: Unprocessable Entity')
+    end
+
+    it 'warns without errors when the JSON body has no errors list' do
+      allow(notifier).to receive(:warn)
+      stub_request(:post, %r{redmine\.example\.com/issues\.json})
+        .to_return(status: [404, 'Not Found'], body: '{"errors":"missing"}')
+
+      notifier.create_custom_issue(subject: 'Test', description: 'Test')
+
+      expect(notifier).to have_received(:warn).once.with('[Errmine] HTTP 404: Not Found')
+    end
+
     it 'returns nil on invalid JSON response' do
       stub_request(:post, %r{redmine\.example\.com/issues\.json})
         .to_return(status: 201, body: 'not json')

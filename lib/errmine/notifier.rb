@@ -28,7 +28,31 @@ module Errmine
     FAILED_REPORT_RETRY_DELAY = 60
 
     # Raised internally when a Redmine request fails
-    class RequestError < StandardError; end
+    class RequestError < StandardError
+      # Builds the error for a failed response, with Redmine's errors (`{"errors": [...]}`) when present
+      #
+      # @param response [Net::HTTPResponse]
+      # @return [RequestError]
+      def self.from_response(response)
+        message = "HTTP #{response.code}: #{response.message}"
+        errors = response_errors(response)
+
+        new(errors.empty? ? message : "#{message.rstrip} - #{errors.join(', ')}")
+      end
+
+      # @param response [Net::HTTPResponse]
+      # @return [Array<String>] empty when the body has no errors list
+      def self.response_errors(response)
+        data = JSON.parse(response.body.to_s)
+        errors = data['errors'] if data.is_a?(Hash)
+
+        errors.is_a?(Array) ? errors.map(&:to_s).reject(&:empty?) : []
+      rescue JSON::ParserError
+        []
+      end
+
+      private_class_method :response_errors
+    end
 
     private_constant :FAILED_REPORT_RETRY_DELAY, :RequestError
 
@@ -471,7 +495,7 @@ module Errmine
 
       response = yield(http)
 
-      raise RequestError, "HTTP #{response.code}: #{response.message}" unless response.is_a?(Net::HTTPSuccess)
+      raise RequestError.from_response(response) unless response.is_a?(Net::HTTPSuccess)
 
       response
     rescue RequestError
