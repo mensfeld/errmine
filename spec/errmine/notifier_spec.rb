@@ -114,6 +114,22 @@ RSpec.describe Errmine::Notifier do
           .with { |req| JSON.parse(req.body)['issue']['subject'].start_with?('[test-app][12345678][4] ') })
       end
 
+      it 'ignores a bracketed number in the message' do
+        issues = [{ 'id' => 456, 'subject' => '[test-app][abcd1234][2] StandardError: retry][123] failed' }]
+        stub_request(:get, %r{redmine\.example\.com/issues\.json})
+          .to_return(status: 200, body: { 'issues' => issues }.to_json)
+
+        stub_request(:put, %r{redmine\.example\.com/issues/456\.json})
+          .to_return(status: 200, body: '{}')
+
+        allow(notifier).to receive(:generate_checksum).and_return('abcd1234')
+
+        notifier.notify(sample_exception('retry][123] failed'))
+
+        expect(WebMock).to(have_requested(:put, %r{redmine\.example\.com/issues/456\.json})
+          .with { |req| JSON.parse(req.body)['issue']['subject'].start_with?('[test-app][abcd1234][3] ') })
+      end
+
       it 'keeps the checksum when the subject starts with an 8-hex app name' do
         issues = [{ 'id' => 456, 'subject' => '[deadbeef][abcdef01][2] StandardError: Test' }]
         stub_request(:get, %r{redmine\.example\.com/issues\.json})
