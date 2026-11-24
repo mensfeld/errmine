@@ -140,11 +140,11 @@ The middleware captures request context (URL, HTTP method, user via Warden). The
 
 ### What Is Not Reported
 
-Errmine does not report these errors automatically:
+Some errors are not reported, or are reported only by `Errmine::Middleware`:
 
-- Errors in rake tasks: Rails does not pass them to its error reporter, and Errmine has no rake integration. On Rails 7.1 and later, errors in `bin/rails runner` are reported.
-- `ActionController::RoutingError` (no route matches): Rails raises it outside `Errmine::Middleware` added with `config.middleware.use`, and does not pass it to its error reporter.
-- `ActiveRecord::RecordNotFound` (404) raised in a controller: during a request, Rails does not pass it to its error reporter, so the Rails 7+ subscriber does not report it. `Errmine::Middleware` reports it.
+- Errors in rake tasks are not reported: Rails does not pass them to its error reporting API, and Errmine has no rake integration. On Rails 7.1 and later, errors in `bin/rails runner` are reported
+- `ActionController::RoutingError` (no route matches) is not reported: Rails raises it in its own middleware after the request has passed back through `Errmine::Middleware`, and does not pass it to its error reporting API
+- `ActiveRecord::RecordNotFound` (404) raised in a controller is reported only by `Errmine::Middleware`: during a request, Rails does not pass it to its error reporting API, so the Rails 7+ subscriber does not report it
 
 ### Manual Notification
 
