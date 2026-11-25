@@ -76,14 +76,16 @@ Create an initializer:
 ```ruby
 # config/initializers/errmine.rb
 Errmine.configure do |config|
-  config.redmine_url = ENV.fetch('REDMINE_URL')
-  config.api_key     = ENV.fetch('REDMINE_API_KEY')
+  config.redmine_url = ENV['ERRMINE_REDMINE_URL']
+  config.api_key     = ENV['ERRMINE_API_KEY']
   config.project_id  = 'my-project'
   config.tracker_id  = 1                    # Default: 1 (Bug)
   config.app_name    = Rails.application.class.module_parent_name
   config.cooldown    = 300                  # Default: 300 seconds
 end
 ```
+
+When `ERRMINE_REDMINE_URL` or `ERRMINE_API_KEY` is unset (for example in development or test), the app still boots and Errmine sends nothing to Redmine.
 
 ### Plain Ruby
 
@@ -135,6 +137,14 @@ use Errmine::Middleware
 Outside Rails, `require 'errmine'` does not load `Errmine::Middleware`. Require `errmine/middleware` before you use it. In Rails, the Railtie loads it.
 
 The middleware captures request context (URL, HTTP method, user via Warden). The URL includes the query string, with the value of each parameter that matches `filter_parameters` replaced with `[FILTERED]` (for example `/password/edit?reset_password_token=[FILTERED]&page=2`). If a parameter name cannot be decoded, the whole query is replaced: `/path?[FILTERED]`.
+
+### What Is Not Reported
+
+Some errors are not reported, or are reported only by `Errmine::Middleware`:
+
+- Errors in rake tasks are not reported: Rails does not pass them to its error reporting API, and Errmine has no rake integration. On Rails 7.1 and later, errors in `bin/rails runner` are reported
+- `ActionController::RoutingError` (no route matches) is not reported: Rails raises it in its own middleware after the request has passed back through `Errmine::Middleware`, and does not pass it to its error reporting API
+- `ActiveRecord::RecordNotFound` (404) raised in a controller is reported only by `Errmine::Middleware`: during a request, Rails does not pass it to its error reporting API, so the Rails 7+ subscriber does not report it
 
 ### Manual Notification
 
